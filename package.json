@@ -1,0 +1,18 @@
+{
+  "name": "salah-time",
+  "version": "1.0.0",
+  "description": "Compute Islamic prayer (salah) times from solar position for a given date and location.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node examples/dhaka.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "license": "MIT"
+}
