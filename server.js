@@ -6,6 +6,19 @@ import { addMinutes } from './src/utils/date.js';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+app.use((request, response, next) => {
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (request.method === 'OPTIONS') {
+    response.sendStatus(204);
+    return;
+  }
+
+  next();
+});
+
 const KAABA_LATITUDE = 21.422487;
 const KAABA_LONGITUDE = 39.826206;
 const ISHRAQ_MINUTES_AFTER_SUNRISE = 15;
