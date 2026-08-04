@@ -21,3 +21,22 @@ export {
   nextDay, startOfDay
 } from './utils/date.js';
 
+export {
+  getMatchingPrayer,
+  isSameMinute,
+  truncateToMinute,
+} from './utils/time-match.js';
+
+export {
+  ADHAN_PRAYERS,
+  DEFAULT_ADHAN_AUDIO_FILES,
+  DEFAULT_AUDIO_BASE_DIR,
+  DEFAULT_LOCATION,
+  checkAndPlayAdhan,
+  createNodeAudioPlayer,
+  getDefaultAdhanOptions,
+  getMatchingAdhanPrayer,
+  resolveAudioPath,
+  startAdhanScheduler,
+} from './audio/index.js';
+

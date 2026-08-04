@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "adhan": "node run-adhan.js",
     "demo": "node examples/dhaka.js"
   },
   "dependencies": {
