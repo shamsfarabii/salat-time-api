@@ -1,5 +1,3 @@
-// Public API for the salah-time library.
-
 export { computeSalahTimes } from './compute.js';
 
 export {

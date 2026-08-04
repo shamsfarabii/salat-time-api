@@ -2,8 +2,6 @@ import { addMinutes } from '../utils/date.js';
 import { getMagribTime } from './magrib.js';
 import { getHalfNight } from './night.js';
 
-// Makruh (discouraged) times to pray. The afternoon window opens shortly before
-// Magrib; the night window for delaying Isha opens at half-night.
 export const ASR_MAKRUH_MINUTES_BEFORE_MAGRIB = 30;
 
 export function getAsrMakruhTime(date, latitude, longitude) {

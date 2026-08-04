@@ -42,11 +42,7 @@ const MONTH_INDEX_BY_NAME = {
 
 app.use(express.json());
 
-/**
- * @param {number} latitude
- * @param {number} longitude
- * @returns {number}
- */
+
 function getQiblaDirection(latitude, longitude) {
   const latitudeRad = latitude * DEG_TO_RAD;
   const kaabaLatitudeRad = KAABA_LATITUDE * DEG_TO_RAD;
@@ -60,11 +56,6 @@ function getQiblaDirection(latitude, longitude) {
   return ((Math.atan2(y, x) * RAD_TO_DEG) + 360) % 360;
 }
 
-/**
- * @param {Date} date
- * @param {string} timeZone
- * @returns {number}
- */
 function getTimezoneOffsetSeconds(date, timeZone) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -87,11 +78,6 @@ function getTimezoneOffsetSeconds(date, timeZone) {
   return sign * (hours * 3600 + minutes * 60);
 }
 
-/**
- * @param {Date} date
- * @param {string} timeZone
- * @returns {string}
- */
 function formatApiDate(date, timeZone) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -106,11 +92,6 @@ function formatApiDate(date, timeZone) {
   return `${day}-${month}-${year}`;
 }
 
-/**
- * @param {Date | null | undefined} time
- * @param {string} timeZone
- * @returns {{ short: string; long: string; secs: number } | null}
- */
 function formatTimeEntry(time, timeZone) {
   if (!(time instanceof Date) || Number.isNaN(time.getTime())) {
     return null;
@@ -145,10 +126,6 @@ function formatTimeEntry(time, timeZone) {
   };
 }
 
-/**
- * @param {ReturnType<typeof computeSalahTimes>} times
- * @param {string} timeZone
- */
 function formatData(times, timeZone) {
   const ishraq = times.sunrise
     ? addMinutes(times.sunrise, ISHRAQ_MINUTES_AFTER_SUNRISE)
@@ -177,11 +154,6 @@ function formatData(times, timeZone) {
   };
 }
 
-/**
- * @param {unknown} value
- * @param {string} name
- * @returns {{ ok: true; value: number } | { ok: false; error: string }}
- */
 function parseCoordinate(value, name) {
   if (value === undefined || value === null || value === '') {
     return { ok: false, error: `${name} is required` };
@@ -195,10 +167,6 @@ function parseCoordinate(value, name) {
   return { ok: true, value: parsed };
 }
 
-/**
- * @param {unknown} value
- * @returns {{ ok: true; value: Date } | { ok: false; error: string }}
- */
 function parseDate(value) {
   if (value === undefined || value === null || value === '') {
     return { ok: true, value: new Date() };
@@ -237,10 +205,6 @@ function parseDate(value) {
   return { ok: true, value: parsed };
 }
 
-/**
- * @param {unknown} value
- * @returns {{ ok: true; value: string } | { ok: false; error: string }}
- */
 function parseTimeZone(value) {
   const timeZone = value === undefined || value === null || value === ''
     ? DEFAULT_TZNAME
@@ -254,9 +218,6 @@ function parseTimeZone(value) {
   }
 }
 
-/**
- * @param {Record<string, unknown>} input
- */
 function resolveRequest(input) {
   const latitudeResult = parseCoordinate(input.lat ?? input.latitude, 'lat');
   if (!latitudeResult.ok) {
@@ -316,9 +277,6 @@ function resolveRequest(input) {
   };
 }
 
-/**
- * @param {ReturnType<typeof resolveRequest> extends { ok: true; value: infer V } ? V : never} resolved
- */
 function buildResponse(resolved) {
   const times = computeSalahTimes(resolved.date, {
     latitude: resolved.lat,
@@ -367,5 +325,5 @@ app.use((_request, response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Salah Time API listening on http://localhost:${PORT}`);
+  console.log(`Salah Time API listening on http${process.env.USE_SSL ? 's' : ''}://${process.env.HOST || 'localhost'}:${PORT}`);
 });

@@ -1,9 +1,5 @@
 import { DAY_MS, DEG_TO_RAD, RAD_TO_DEG } from '../constants.js';
 
-// Low-level solar geometry. Given an instant and an observer location this
-// returns the sun's elevation above the horizon. Everything else in the
-// library is derived from this single function.
-
 const UNIX_EPOCH_AS_JULIAN_DAY = 2440587.5;
 const J2000_EPOCH_JULIAN_DAY = 2451545.0;
 

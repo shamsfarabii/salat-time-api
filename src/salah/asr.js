@@ -2,9 +2,6 @@ import { DEG_TO_RAD, RAD_TO_DEG } from '../constants.js';
 import { getSunElevationCrossings } from '../astronomy/sun-events.js';
 import { getZuhrDetails } from './zuhr.js';
 
-// Asr begins when an object's shadow grows to its noon length plus a multiple
-// of the object's height. The multiple (shadow factor) is what distinguishes
-// the two main juristic opinions.
 export const SHADOW_FACTOR_STANDARD = 1; // Shafi'i, Maliki, Hanbali
 export const SHADOW_FACTOR_HANAFI = 2;
 

@@ -1,8 +1,5 @@
 import { DAY_MS } from '../constants.js';
 
-// Date helpers shared across the salah modules. Keeping them in one place
-// avoids the per-module re-implementations of add/subtract/start-of-day logic.
-
 export function startOfDay(date) {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);

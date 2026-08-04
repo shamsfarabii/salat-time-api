@@ -2,9 +2,6 @@ import { addMilliseconds, nextDay } from '../utils/date.js';
 import { getFajrTime } from './fajr.js';
 import { getMagribTime } from './magrib.js';
 
-// The Islamic night runs from Magrib to the following Fajr. Optional time
-// boundaries are defined as fractions of that period.
-
 export function getNightPeriod(date, latitude, longitude) {
   const magrib = getMagribTime(date, latitude, longitude);
   const fajr = getFajrTime(nextDay(date), latitude, longitude);
