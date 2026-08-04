@@ -1,8 +1,51 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { platform } from 'node:os';
 
+/** @typedef {{ command: string, args: (filePath: string) => string[] }} PlayerConfig */
+
+/** mpv / ffplay / mpg123 decode MP3; aplay only accepts raw PCM and distorts MP3. */
+const LINUX_MP3_PLAYERS = [
+  {
+    command: 'mpv',
+    args: (filePath) => ['--no-video', '--really-quiet', filePath],
+  },
+  {
+    command: 'ffplay',
+    args: (filePath) => ['-nodisp', '-autoexit', '-loglevel', 'quiet', filePath],
+  },
+  {
+    command: 'mpg123',
+    args: (filePath) => ['-q', filePath],
+  },
+];
+
 /**
- * @returns {{ command: string, args: (filePath: string) => string[] } | null}
+ * @param {string} command
+ * @returns {boolean}
+ */
+function isCommandAvailable(command) {
+  const result = spawnSync('sh', ['-c', `command -v ${command}`], {
+    stdio: 'ignore',
+  });
+
+  return result.status === 0;
+}
+
+/**
+ * @returns {PlayerConfig | null}
+ */
+function findLinuxMp3PlayerConfig() {
+  for (const player of LINUX_MP3_PLAYERS) {
+    if (isCommandAvailable(player.command)) {
+      return player;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * @returns {PlayerConfig | null}
  */
 function getPlatformPlayerConfig() {
   const os = platform();
@@ -12,7 +55,7 @@ function getPlatformPlayerConfig() {
   }
 
   if (os === 'linux') {
-    return { command: 'aplay', args: (filePath) => [filePath] };
+    return findLinuxMp3PlayerConfig();
   }
 
   if (os === 'win32') {
@@ -38,8 +81,17 @@ export function createNodeAudioPlayer() {
   const config = getPlatformPlayerConfig();
 
   if (!config) {
+    const os = platform();
+
+    if (os === 'linux') {
+      throw new Error(
+        'No MP3 audio player found on Linux. Install one of: mpv, ffmpeg (ffplay), or mpg123. ' +
+          'On Fedora: sudo dnf install mpv',
+      );
+    }
+
     throw new Error(
-      `No built-in audio player for platform "${platform()}". Provide a custom playAudio callback.`,
+      `No built-in audio player for platform "${os}". Provide a custom playAudio callback.`,
     );
   }
 
