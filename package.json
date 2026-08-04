@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "adhan": "node run-adhan.js",
+    "set": "node run-set-alarm.js",
     "demo": "node examples/dhaka.js"
   },
   "dependencies": {

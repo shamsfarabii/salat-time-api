@@ -9,6 +9,7 @@ export {
 export { getMatchingAdhanPrayer } from './get-matching-adhan.js';
 export { checkAndPlayAdhan } from './check-and-play-adhan.js';
 export { startAdhanScheduler } from './scheduler.js';
+export { startCustomAlarm } from './start-custom-alarm.js';
 export { createNodeAudioPlayer } from './node-player.js';
 export { resolveAudioPath } from './resolve-audio-path.js';
 export { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
