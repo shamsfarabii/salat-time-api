@@ -1,5 +1,6 @@
 import express from 'express';
 import { computeSalahTimes } from './src/index.js';
+import { mountJamaatRoutes } from './src/db/routes.js';
 import { DEG_TO_RAD, RAD_TO_DEG } from './src/constants.js';
 import { addMinutes } from './src/utils/date.js';
 
@@ -319,6 +320,8 @@ app.post('/salah-times', (request, response) => {
 
   response.json(buildResponse(resolved.value));
 });
+
+mountJamaatRoutes(app);
 
 app.use((_request, response) => {
   response.status(404).json({ error: 'Not found' });

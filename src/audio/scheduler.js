@@ -1,36 +1,57 @@
 import { computeSalahTimes } from '../compute.js';
-import { truncateToMinute } from '../utils/time-match.js';
+import {
+  isSameMinute,
+  isSameSecond,
+  truncateToMinute,
+  truncateToSecond,
+} from '../utils/time-match.js';
 import { ADHAN_PRAYERS } from './constants.js';
 import { DEFAULT_ADHAN_AUDIO_FILES, DEFAULT_ASR_MADHAB } from './config.js';
-import { getMatchingAdhanPrayer } from './get-matching-adhan.js';
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
+import {
+  START_SECONDS_BEFORE_ADHAN,
+  getAdhanAudioFileName,
+  getStartAudioFileName,
+  startAudioExists,
+} from './prayer-audio-files.js';
 
 /**
  * @typedef {Object} AdhanSchedulerOptions
  * @property {number} latitude
  * @property {number} longitude
- * @property {number} [intervalMs=60000] How often to poll for a matching prayer time
+ * @property {number} [intervalMs=1000] How often to poll for Start/Adhan playback
  * @property {Record<string, string>} [audioFiles]
  * @property {string} [audioBaseDir]
  * @property {string[]} [prayers]
- * @property {(filePath: string, context: { prayer: string, time: Date }) => Promise<void>} playAudio
- * @property {(result: { prayer: string, time: Date }) => void} [onPlayed]
+ * @property {(filePath: string, context: {
+ *   prayer: string,
+ *   time: Date,
+ *   audioKind: 'start' | 'adhan',
+ * }) => Promise<void>} playAudio
+ * @property {(result: {
+ *   prayer: string,
+ *   time: Date,
+ *   audioKind: 'start' | 'adhan',
+ * }) => void} [onPlayed]
  * @property {(error: unknown) => void} [onError]
  * @property {'standard' | 'hanafi'} [asrMadhab]
  */
 
 /**
- * Poll at a fixed interval and play Adhan audio when the current minute matches a salah time.
- * Skips duplicate playback for the same prayer within the same minute.
+ * Poll at a fixed interval, play Start audio 4 seconds before adhan, then adhan at salah time.
  *
  * @param {AdhanSchedulerOptions} options
- * @returns {{ stop: () => void, checkNow: () => Promise<{ prayer: string, time: Date } | null> }}
+ * @returns {{ stop: () => void, checkNow: () => Promise<{
+ *   prayer: string,
+ *   time: Date,
+ *   audioKind: 'start' | 'adhan',
+ * } | null> }}
  */
 export function startAdhanScheduler({
   latitude,
   longitude,
-  intervalMs = 60_000,
+  intervalMs = 1000,
   audioFiles = DEFAULT_ADHAN_AUDIO_FILES,
   audioBaseDir,
   prayers = ADHAN_PRAYERS,
@@ -43,7 +64,7 @@ export function startAdhanScheduler({
     throw new Error('playAudio callback is required');
   }
 
-  let lastPlayedKey = null;
+  const playedKeys = new Set();
   let timerId = null;
 
   const checkNow = async () => {
@@ -52,34 +73,59 @@ export function startAdhanScheduler({
       computeSalahTimes(now, { latitude, longitude }),
       asrMadhab
     );
-    const prayer = getMatchingAdhanPrayer(now, salahTimes, prayers);
 
-    if (!prayer) {
-      return null;
+    /** @type {{ prayer: string, time: Date, audioKind: 'start' | 'adhan' } | null} */
+    let lastResult = null;
+
+    for (const prayer of prayers) {
+      const adhanTime = salahTimes[prayer];
+      if (!(adhanTime instanceof Date) || Number.isNaN(adhanTime.getTime())) {
+        continue;
+      }
+
+      const startTime = new Date(
+        adhanTime.getTime() - START_SECONDS_BEFORE_ADHAN * 1000
+      );
+
+      if (
+        startAudioExists(prayer, audioBaseDir) &&
+        isSameSecond(now, startTime)
+      ) {
+        const playKey = `${prayer}-start-${truncateToSecond(now)}`;
+        if (!playedKeys.has(playKey)) {
+          const startFile = getStartAudioFileName(prayer);
+          const resolvedPath = resolveAudioPath(startFile, audioBaseDir);
+          await playAudio(resolvedPath, {
+            prayer,
+            time: startTime,
+            audioKind: 'start',
+          });
+
+          playedKeys.add(playKey);
+          lastResult = { prayer, time: startTime, audioKind: 'start' };
+          onPlayed?.(lastResult);
+        }
+      }
+
+      if (isSameMinute(now, adhanTime)) {
+        const playKey = `${prayer}-adhan-${truncateToMinute(now)}`;
+        if (!playedKeys.has(playKey)) {
+          const audioFile = audioFiles[prayer] ?? getAdhanAudioFileName(prayer);
+          const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
+          await playAudio(resolvedPath, {
+            prayer,
+            time: adhanTime,
+            audioKind: 'adhan',
+          });
+
+          playedKeys.add(playKey);
+          lastResult = { prayer, time: adhanTime, audioKind: 'adhan' };
+          onPlayed?.(lastResult);
+        }
+      }
     }
 
-    const playKey = `${prayer}-${truncateToMinute(now)}`;
-    if (playKey === lastPlayedKey) {
-      return null;
-    }
-
-    const audioFile = audioFiles[prayer];
-    if (!audioFile) {
-      throw new Error(`No audio file configured for prayer: ${prayer}`);
-    }
-
-    const prayerTime = salahTimes[prayer];
-    if (!(prayerTime instanceof Date) || Number.isNaN(prayerTime.getTime())) {
-      throw new Error(`Computed time for ${prayer} is invalid`);
-    }
-
-    const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
-    await playAudio(resolvedPath, { prayer, time: prayerTime });
-
-    lastPlayedKey = playKey;
-    const result = { prayer, time: prayerTime };
-    onPlayed?.(result);
-    return result;
+    return lastResult;
   };
 
   const runTick = () => {
@@ -89,6 +135,7 @@ export function startAdhanScheduler({
   };
 
   timerId = setInterval(runTick, intervalMs);
+  runTick();
 
   return {
     stop: () => {

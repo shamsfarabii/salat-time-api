@@ -10,10 +10,15 @@
   "scripts": {
     "start": "node server.js",
     "adhan": "node run-adhan.js",
+    "jamaat": "node run-jamaat.js",
+    "jamaat-reminders": "node run-jamaat-reminders.js",
+    "salah-audio": "node run-salah-audio.js",
+    "seed-jamaat": "node scripts/seed-jamaat.js",
     "set": "node run-set-alarm.js",
     "demo": "node examples/dhaka.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "^5.1.0"
   },
   "license": "MIT"

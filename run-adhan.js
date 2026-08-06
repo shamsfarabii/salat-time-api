@@ -1,8 +1,11 @@
 import { computeSalahTimes } from './src/compute.js';
 import {
   ADHAN_PRAYERS,
+  START_SECONDS_BEFORE_ADHAN,
   createNodeAudioPlayer,
+  getAdhanAudioFileName,
   getDefaultAdhanOptions,
+  getStartAudioFileName,
   resolveAdhanSalahTimes,
   startAdhanScheduler,
 } from './src/audio/index.js';
@@ -20,19 +23,26 @@ const times = resolveAdhanSalahTimes(
 
 console.log('Adhan scheduler started');
 console.log(`Location: ${adhanOptions.latitude}, ${adhanOptions.longitude}`);
-console.log('Today\'s prayer times:');
+console.log(`Start cue plays ${START_SECONDS_BEFORE_ADHAN} seconds before each adhan`);
+console.log('Today\'s schedule:');
 
 for (const prayer of ADHAN_PRAYERS) {
-  const time = times[prayer];
-  const audio = adhanOptions.audioFiles[prayer];
-  console.log(`  ${prayer.padEnd(6)} ${time?.toLocaleTimeString() ?? 'n/a'}  →  ${audio}`);
+  const adhanTime = times[prayer];
+  const startTime = adhanTime
+    ? new Date(adhanTime.getTime() - START_SECONDS_BEFORE_ADHAN * 1000)
+    : null;
+
+  console.log(
+    `  ${prayer.padEnd(6)} ${startTime?.toLocaleTimeString() ?? 'n/a'}  ${getStartAudioFileName(prayer)}  →  ${adhanTime?.toLocaleTimeString() ?? 'n/a'}  ${getAdhanAudioFileName(prayer)}`
+  );
 }
 
 const scheduler = startAdhanScheduler({
   ...adhanOptions,
   playAudio,
-  onPlayed: ({ prayer, time }) => {
-    console.log(`Playing Adhan for ${prayer} at ${time.toLocaleTimeString()}`);
+  onPlayed: ({ prayer, time, audioKind }) => {
+    const label = audioKind === 'start' ? 'Start cue' : 'Adhan';
+    console.log(`Playing ${label} for ${prayer} at ${time.toLocaleTimeString()}`);
   },
   onError: (error) => {
     console.error('Adhan playback failed:', error);

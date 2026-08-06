@@ -8,6 +8,32 @@ export function truncateToMinute(date) {
 }
 
 /**
+ * Truncate a Date to the start of its second (drops milliseconds).
+ * @param {Date} date
+ * @returns {number} Epoch milliseconds at second boundary
+ */
+export function truncateToSecond(date) {
+  return Math.floor(date.getTime() / 1000) * 1000;
+}
+
+/**
+ * @param {Date | null | undefined} a
+ * @param {Date | null | undefined} b
+ * @returns {boolean}
+ */
+export function isSameSecond(a, b) {
+  if (!(a instanceof Date) || !(b instanceof Date)) {
+    return false;
+  }
+
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+    return false;
+  }
+
+  return truncateToSecond(a) === truncateToSecond(b);
+}
+
+/**
  * @param {Date | null | undefined} a
  * @param {Date | null | undefined} b
  * @returns {boolean}
