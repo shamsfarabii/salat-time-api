@@ -15,6 +15,7 @@ import {
   getStartAudioFileName,
   startAudioExists,
 } from './prayer-audio-files.js';
+import { createNonOverlappingTickRunner } from './tick-runner.js';
 
 /**
  * @typedef {Object} AdhanSchedulerOptions
@@ -67,6 +68,34 @@ export function startAdhanScheduler({
   const playedKeys = new Set();
   let timerId = null;
 
+  /**
+   * @param {string} playKey
+   * @param {string} resolvedPath
+   * @param {{
+   *   prayer: string,
+   *   time: Date,
+   *   audioKind: 'start' | 'adhan',
+   * }} context
+   * @returns {Promise<{ prayer: string, time: Date, audioKind: 'start' | 'adhan' } | null>}
+   */
+  const playOnce = async (playKey, resolvedPath, context) => {
+    if (playedKeys.has(playKey)) {
+      return null;
+    }
+
+    playedKeys.add(playKey);
+
+    try {
+      await playAudio(resolvedPath, context);
+    } catch (error) {
+      playedKeys.delete(playKey);
+      throw error;
+    }
+
+    onPlayed?.(context);
+    return context;
+  };
+
   const checkNow = async () => {
     const now = new Date();
     const salahTimes = resolveAdhanSalahTimes(
@@ -92,35 +121,31 @@ export function startAdhanScheduler({
         isSameSecond(now, startTime)
       ) {
         const playKey = `${prayer}-start-${truncateToSecond(now)}`;
-        if (!playedKeys.has(playKey)) {
-          const startFile = getStartAudioFileName(prayer);
-          const resolvedPath = resolveAudioPath(startFile, audioBaseDir);
-          await playAudio(resolvedPath, {
-            prayer,
-            time: startTime,
-            audioKind: 'start',
-          });
+        const startFile = getStartAudioFileName(prayer);
+        const resolvedPath = resolveAudioPath(startFile, audioBaseDir);
+        const result = await playOnce(playKey, resolvedPath, {
+          prayer,
+          time: startTime,
+          audioKind: 'start',
+        });
 
-          playedKeys.add(playKey);
-          lastResult = { prayer, time: startTime, audioKind: 'start' };
-          onPlayed?.(lastResult);
+        if (result) {
+          lastResult = result;
         }
       }
 
       if (isSameMinute(now, adhanTime)) {
         const playKey = `${prayer}-adhan-${truncateToMinute(now)}`;
-        if (!playedKeys.has(playKey)) {
-          const audioFile = audioFiles[prayer] ?? getAdhanAudioFileName(prayer);
-          const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
-          await playAudio(resolvedPath, {
-            prayer,
-            time: adhanTime,
-            audioKind: 'adhan',
-          });
+        const audioFile = audioFiles[prayer] ?? getAdhanAudioFileName(prayer);
+        const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
+        const result = await playOnce(playKey, resolvedPath, {
+          prayer,
+          time: adhanTime,
+          audioKind: 'adhan',
+        });
 
-          playedKeys.add(playKey);
-          lastResult = { prayer, time: adhanTime, audioKind: 'adhan' };
-          onPlayed?.(lastResult);
+        if (result) {
+          lastResult = result;
         }
       }
     }
@@ -128,11 +153,7 @@ export function startAdhanScheduler({
     return lastResult;
   };
 
-  const runTick = () => {
-    checkNow().catch((error) => {
-      onError?.(error);
-    });
-  };
+  const runTick = createNonOverlappingTickRunner(checkNow, onError);
 
   timerId = setInterval(runTick, intervalMs);
   runTick();

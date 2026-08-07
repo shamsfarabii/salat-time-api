@@ -1,5 +1,6 @@
 import { isSameMinute, truncateToMinute } from '../utils/time-match.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
+import { createNonOverlappingTickRunner } from './tick-runner.js';
 
 /**
  * @param {number} hours
@@ -92,24 +93,29 @@ export function startCustomAlarm({
 
     lastPlayedKey = playKey;
     const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
-    await playAudio(resolvedPath, { time: todayAlarm });
+
+    try {
+      await playAudio(resolvedPath, { time: todayAlarm });
+    } catch (error) {
+      lastPlayedKey = null;
+      throw error;
+    }
 
     const result = { time: todayAlarm };
     onPlayed?.(result);
     return result;
   };
 
-  const runTick = () => {
-    checkNow()
-      .then((result) => {
-        if (result && repeat === 'once') {
-          stop();
-        }
-      })
-      .catch((error) => {
-        onError?.(error);
-      });
-  };
+  const runTick = createNonOverlappingTickRunner(
+    async () => {
+      const result = await checkNow();
+      if (result && repeat === 'once') {
+        stop();
+      }
+      return result;
+    },
+    onError
+  );
 
   const stop = () => {
     if (timerId !== null) {

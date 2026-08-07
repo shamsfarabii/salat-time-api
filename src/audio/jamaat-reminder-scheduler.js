@@ -6,6 +6,7 @@ import {
   getMatchingJamaatReminder,
   getReminderTimeForToday,
 } from './jamaat-time-utils.js';
+import { createNonOverlappingTickRunner } from './tick-runner.js';
 
 /**
  * @typedef {Object} JamaatReminderSchedulerOptions
@@ -83,16 +84,21 @@ export function startJamaatReminderScheduler({
     jamaatTime.setMinutes(jamaatTime.getMinutes() + match.minutesBefore);
 
     const resolvedPath = resolveAudioPath(match.audioFile, audioBaseDir);
-    await playAudio(resolvedPath, {
-      prayer: match.prayer,
-      reminderTime,
-      jamaatTime,
-      minutesBefore: match.minutesBefore,
-      reminderId: match.reminderId,
-      audioKind: 'masjid',
-    });
-
     lastPlayedKey = playKey;
+
+    try {
+      await playAudio(resolvedPath, {
+        prayer: match.prayer,
+        reminderTime,
+        jamaatTime,
+        minutesBefore: match.minutesBefore,
+        reminderId: match.reminderId,
+        audioKind: 'masjid',
+      });
+    } catch (error) {
+      lastPlayedKey = null;
+      throw error;
+    }
 
     const result = {
       prayer: match.prayer,
@@ -107,11 +113,7 @@ export function startJamaatReminderScheduler({
     return result;
   };
 
-  const runTick = () => {
-    checkNow().catch((error) => {
-      onError?.(error);
-    });
-  };
+  const runTick = createNonOverlappingTickRunner(checkNow, onError);
 
   timerId = setInterval(runTick, intervalMs);
 
