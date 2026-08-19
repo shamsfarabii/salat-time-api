@@ -1,36 +1,58 @@
-import {
-  getAsrTimes,
-  getFajrTime,
-  getIftarTime,
-  getIshaTime,
-  getMagribTime,
-  getMakruhTimes,
-  getNightTimes,
-  getRedSkyEndTime,
-  getSehriEndTime,
-  getSunriseTime,
-  getZuhrTime,
-} from './salah/index.js';
+import { nextDay } from './utils/date.js';
+import { computeElevationTimes } from './salah/elevation-times.js';
+import { computeAsrTimes } from './salah/asr.js';
+import { computeNightTimes } from './salah/night.js';
+import { computeIftarTime } from './salah/iftar.js';
+import { computeMakruhTimes } from './salah/makruh.js';
 
-
+/**
+ * Computes all Islamic prayer times for a given date and geographic location.
+ *
+ * @param {Date} date — the calendar date (day boundaries use the server's local timezone)
+ * @param {{ latitude: number, longitude: number }} coordinates — degrees
+ * @returns {{
+ *   fajr: Date | null,
+ *   sehri: Date | null,
+ *   sunrise: Date | null,
+ *   zuhr: Date,
+ *   asr: Date | null,
+ *   asrHanafi: Date | null,
+ *   magrib: Date | null,
+ *   iftar: Date | null,
+ *   redSkyEnd: Date | null,
+ *   isha: Date | null,
+ *   asrMakruhStart: Date | null,
+ *   ishaMakruhStart: Date | null,
+ *   night: { start, end, durationMs, oneThird, half, twoThird, lastSixth },
+ * }}
+ */
 export function computeSalahTimes(date, { latitude, longitude }) {
-  const { asr, asrHanafi } = getAsrTimes(date, latitude, longitude);
-  const { iftar } = getIftarTime(date, latitude, longitude);
-  const { asrMakruhStart, ishaMakruhStart } = getMakruhTimes(date, latitude, longitude);
+  const base = computeElevationTimes(date, latitude, longitude);
+
+  const { asr, asrHanafi } = computeAsrTimes(
+    date, latitude, longitude,
+    base.solarNoonTime, base.maxElevationDeg,
+  );
+
+  const nextDayFajr = computeElevationTimes(nextDay(date), latitude, longitude).fajr;
+  const night = computeNightTimes(base.sunset, nextDayFajr);
+
+  const { iftar } = computeIftarTime(base.sunset);
+  const { asrMakruhStart, ishaMakruhStart } = computeMakruhTimes(base.sunset, night.half);
 
   return {
-    fajr: getFajrTime(date, latitude, longitude),
-    sehri: getSehriEndTime(date, latitude, longitude),
-    sunrise: getSunriseTime(date, latitude, longitude),
-    zuhr: getZuhrTime(date, latitude, longitude),
+    fajr: base.fajr,
+    sehri: base.fajr,
+    sunrise: base.sunrise,
+    zuhr: base.solarNoonTime,
     asr,
     asrHanafi,
-    magrib: getMagribTime(date, latitude, longitude),
+    magrib: base.sunset,
     iftar,
-    redSkyEnd: getRedSkyEndTime(date, latitude, longitude),
-    isha: getIshaTime(date, latitude, longitude),
+    redSkyEnd: base.redSkyEnd,
+    isha: base.isha,
     asrMakruhStart,
     ishaMakruhStart,
-    night: getNightTimes(date, latitude, longitude),
+    night,
   };
 }

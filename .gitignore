@@ -1,2 +1,6 @@
 node_modules
 examples/dhaka.js
+
+salah-time.db
+salah-time.db-shm
+salah-time.db-wal

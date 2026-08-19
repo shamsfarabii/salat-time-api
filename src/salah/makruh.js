@@ -1,21 +1,15 @@
 import { addMinutes } from '../utils/date.js';
-import { getMagribTime } from './magrib.js';
-import { getHalfNight } from './night.js';
 
 export const ASR_MAKRUH_MINUTES_BEFORE_MAGRIB = 30;
 
-export function getAsrMakruhTime(date, latitude, longitude) {
-  const magrib = getMagribTime(date, latitude, longitude);
-  return magrib ? addMinutes(magrib, -ASR_MAKRUH_MINUTES_BEFORE_MAGRIB) : null;
-}
-
-export function getIshaMakruhTime(date, latitude, longitude) {
-  return getHalfNight(date, latitude, longitude);
-}
-
-export function getMakruhTimes(date, latitude, longitude) {
+/**
+ * @param {Date | null} magrib   — pre-computed sunset time
+ * @param {Date | null} halfNight — pre-computed midnight (half of night period)
+ * @returns {{ asrMakruhStart: Date | null, ishaMakruhStart: Date | null }}
+ */
+export function computeMakruhTimes(magrib, halfNight) {
   return {
-    asrMakruhStart: getAsrMakruhTime(date, latitude, longitude),
-    ishaMakruhStart: getIshaMakruhTime(date, latitude, longitude),
+    asrMakruhStart: magrib ? addMinutes(magrib, -ASR_MAKRUH_MINUTES_BEFORE_MAGRIB) : null,
+    ishaMakruhStart: halfNight,
   };
 }

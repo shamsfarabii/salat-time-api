@@ -85,6 +85,16 @@ function findElevationCrossings(date, latitude, longitude, targetElevation) {
   return crossings;
 }
 
+/**
+ * Finds the times during a day when the sun crosses a target elevation.
+ * Scans in 5-minute steps then bisects to sub-millisecond precision.
+ *
+ * @param {Date} date
+ * @param {number} latitude        — degrees
+ * @param {number} longitude       — degrees
+ * @param {number} targetElevation — degrees (e.g. -18 for astronomical twilight)
+ * @returns {{ dawn: Date | null, dusk: Date | null, crossings: Array }}
+ */
 export function getSunElevationCrossings(date, latitude, longitude, targetElevation) {
   const crossings = findElevationCrossings(date, latitude, longitude, targetElevation);
 
@@ -95,6 +105,15 @@ export function getSunElevationCrossings(date, latitude, longitude, targetElevat
   };
 }
 
+/**
+ * Finds solar noon (the moment of maximum sun elevation) for a given day
+ * using ternary search.
+ *
+ * @param {Date} date
+ * @param {number} latitude  — degrees
+ * @param {number} longitude — degrees
+ * @returns {{ time: Date, maxElevation: number }}
+ */
 export function getSolarNoon(date, latitude, longitude) {
   let low = startOfDay(date).getTime();
   let high = endOfDay(date).getTime();

@@ -1,60 +1,34 @@
-import { addMilliseconds, nextDay } from '../utils/date.js';
-import { getFajrTime } from './fajr.js';
-import { getMagribTime } from './magrib.js';
+import { addMilliseconds } from '../utils/date.js';
 
-export function getNightPeriod(date, latitude, longitude) {
-  const magrib = getMagribTime(date, latitude, longitude);
-  const fajr = getFajrTime(nextDay(date), latitude, longitude);
+const NULL_NIGHT = {
+  start: null,
+  end: null,
+  durationMs: null,
+  oneThird: null,
+  half: null,
+  twoThird: null,
+  lastSixth: null,
+};
 
-  if (!magrib || !fajr) {
-    return { magrib, fajr, durationMs: null };
+/**
+ * @param {Date | null} magrib     — sunset time for this day
+ * @param {Date | null} nextDayFajr — fajr time for the following day
+ * @returns {{ start, end, durationMs, oneThird, half, twoThird, lastSixth }}
+ */
+export function computeNightTimes(magrib, nextDayFajr) {
+  if (!magrib || !nextDayFajr) {
+    return { ...NULL_NIGHT, start: magrib ?? null, end: nextDayFajr ?? null };
   }
 
-  return {
-    magrib,
-    fajr,
-    durationMs: fajr.getTime() - magrib.getTime(),
-  };
-}
-
-function fractionFromMagrib(date, latitude, longitude, fraction) {
-  const { magrib, durationMs } = getNightPeriod(date, latitude, longitude);
-  if (!magrib || !durationMs) {
-    return null;
-  }
-  return addMilliseconds(magrib, durationMs * fraction);
-}
-
-export function getOneThirdOfNight(date, latitude, longitude) {
-  return fractionFromMagrib(date, latitude, longitude, 1 / 3);
-}
-
-export function getTwoThirdOfNight(date, latitude, longitude) {
-  return fractionFromMagrib(date, latitude, longitude, 2 / 3);
-}
-
-export function getHalfNight(date, latitude, longitude) {
-  return fractionFromMagrib(date, latitude, longitude, 1 / 2);
-}
-
-export function getLastSixthOfNight(date, latitude, longitude) {
-  const { fajr, durationMs } = getNightPeriod(date, latitude, longitude);
-  if (!fajr || !durationMs) {
-    return null;
-  }
-  return addMilliseconds(fajr, -durationMs / 6);
-}
-
-export function getNightTimes(date, latitude, longitude) {
-  const { magrib, fajr, durationMs } = getNightPeriod(date, latitude, longitude);
+  const durationMs = nextDayFajr.getTime() - magrib.getTime();
 
   return {
     start: magrib,
-    end: fajr,
+    end: nextDayFajr,
     durationMs,
-    oneThird: getOneThirdOfNight(date, latitude, longitude),
-    twoThird: getTwoThirdOfNight(date, latitude, longitude),
-    half: getHalfNight(date, latitude, longitude),
-    lastSixth: getLastSixthOfNight(date, latitude, longitude),
+    oneThird: addMilliseconds(magrib, durationMs / 3),
+    half: addMilliseconds(magrib, durationMs / 2),
+    twoThird: addMilliseconds(magrib, (durationMs * 2) / 3),
+    lastSixth: addMilliseconds(nextDayFajr, -durationMs / 6),
   };
 }

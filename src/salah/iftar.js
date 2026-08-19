@@ -1,13 +1,15 @@
 import { addMinutes } from '../utils/date.js';
-import { getMagribTime } from './magrib.js';
 
 export const DEFAULT_CAUTION_MINUTES = 4;
 export const LOCAL_SUNSET_CAUTION_MINUTES = 2;
 
-export function getIftarTime(date, latitude, longitude, options = {}) {
+/**
+ * @param {Date | null} calculatedMagrib — pre-computed sunset time
+ * @param {{ localMagribTime?: Date | null, cautionMinutes?: number | null }} [options]
+ * @returns {{ magrib, localMagribTime, baseMagribTime, cautionMinutes, iftar }}
+ */
+export function computeIftarTime(calculatedMagrib, options = {}) {
   const { localMagribTime = null, cautionMinutes = null } = options;
-
-  const calculatedMagrib = getMagribTime(date, latitude, longitude);
 
   const hasLocalMagrib = localMagribTime instanceof Date;
   const baseMagribTime = hasLocalMagrib ? localMagribTime : calculatedMagrib;

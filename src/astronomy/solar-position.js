@@ -11,6 +11,16 @@ function normalizeDegrees(degrees) {
   return ((degrees % 360) + 360) % 360;
 }
 
+/**
+ * Computes the sun's elevation angle above the horizon at a given instant
+ * and geographic location. Uses a low-precision solar position algorithm
+ * based on the J2000 epoch.
+ *
+ * @param {Date} date
+ * @param {number} latitude  — degrees, north positive
+ * @param {number} longitude — degrees, east positive
+ * @returns {number} elevation in degrees (negative = below horizon)
+ */
 export function getSolarElevation(date, latitude, longitude) {
   const julianDay = toJulianDay(date);
   const daysSinceJ2000 = julianDay - J2000_EPOCH_JULIAN_DAY;
