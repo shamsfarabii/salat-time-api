@@ -22,6 +22,17 @@ export const PRAYER_AUDIO_FILE_NAMES = {
 };
 
 /**
+ * Maps special time events to Start cue audio filenames.
+ *
+ * @type {Record<string, string>}
+ */
+export const SPECIAL_TIME_AUDIO_FILES = {
+  sunrise: 'SunriseStart.mp3',
+  tahajjud: 'TahajjudStart.mp3',
+  ishraq: 'IshrakStart.mp3',
+};
+
+/**
  * @param {string} prayer
  * @returns {string}
  */
@@ -35,6 +46,28 @@ export function getMasjidAudioFileName(prayer) {
  */
 export function getStartAudioFileName(prayer) {
   return `${getPrayerAudioPrefix(prayer)}Start.mp3`;
+}
+
+/**
+ * @param {string} event
+ * @returns {string}
+ */
+export function getSpecialTimeAudioFileName(event) {
+  const fileName = SPECIAL_TIME_AUDIO_FILES[event];
+  if (!fileName) {
+    throw new Error(`Unknown special time event: ${event}`);
+  }
+
+  return fileName;
+}
+
+/**
+ * @param {string} event
+ * @param {string | undefined} audioBaseDir
+ * @returns {boolean}
+ */
+export function specialTimeAudioExists(event, audioBaseDir) {
+  return audioFileExists(getSpecialTimeAudioFileName(event), audioBaseDir);
 }
 
 /**

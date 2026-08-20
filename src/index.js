@@ -12,7 +12,7 @@ export { getSolarElevation } from './astronomy/solar-position.js';
 export { getSolarNoon, getSunElevationCrossings } from './astronomy/sun-events.js';
 
 export {
-  ASTRONOMICAL_TWILIGHT_ELEVATION, DAY_MS, DEG_TO_RAD, HORIZON_ELEVATION, RAD_TO_DEG, RED_SKY_ELEVATION
+  ASTRONOMICAL_TWILIGHT_ELEVATION, DAY_MS, DEG_TO_RAD, HORIZON_ELEVATION, ISHRAQ_MINUTES_AFTER_SUNRISE, RAD_TO_DEG, RED_SKY_ELEVATION
 } from './constants.js';
 
 export {
@@ -29,6 +29,7 @@ export {
 
 export {
   ADHAN_PRAYERS,
+  SPECIAL_TIME_EVENTS,
   DEFAULT_ADHAN_AUDIO_FILES,
   DEFAULT_AUDIO_BASE_DIR,
   DEFAULT_LOCATION,
@@ -41,9 +42,12 @@ export {
   getMasjidAudioFileName,
   getMatchingAdhanPrayer,
   getStartAudioFileName,
+  getSpecialTimeAudioFileName,
   resolveAudioPath,
+  resolveSpecialSalahTimes,
   startAdhanScheduler,
   startJamaatReminderScheduler,
+  startSpecialTimeScheduler,
   buildDailyTime,
   buildMasjidSchedules,
   getMatchingJamaatReminder,

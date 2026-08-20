@@ -7,3 +7,6 @@ export const HORIZON_ELEVATION = -0.833;
 export const RED_SKY_ELEVATION = -12;
 
 export const ASTRONOMICAL_TWILIGHT_ELEVATION = -18;
+
+/** Minutes after sunrise when Ishraq begins (matches API `ishraq` / `rise + 15 min`). */
+export const ISHRAQ_MINUTES_AFTER_SUNRISE = 15;

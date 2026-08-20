@@ -3,6 +3,7 @@ import { computeSalahTimes } from './src/index.js';
 import { mountJamaatRoutes } from './src/db/routes.js';
 import { DEG_TO_RAD, RAD_TO_DEG } from './src/constants.js';
 import { addMinutes } from './src/utils/date.js';
+import { ISHRAQ_MINUTES_AFTER_SUNRISE } from './src/constants.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -22,7 +23,6 @@ app.use((request, response, next) => {
 
 const KAABA_LATITUDE = 21.422487;
 const KAABA_LONGITUDE = 39.826206;
-const ISHRAQ_MINUTES_AFTER_SUNRISE = 15;
 const SETSTART_MINUTES_BEFORE_MAGRIB = 5;
 const DEFAULT_TZNAME = 'Asia/Dhaka';
 
