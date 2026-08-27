@@ -16,6 +16,12 @@ export function nextDay(date) {
   return next;
 }
 
+export function previousDay(date) {
+  const previous = new Date(date);
+  previous.setDate(previous.getDate() - 1);
+  return previous;
+}
+
 export function addMilliseconds(date, milliseconds) {
   return new Date(date.getTime() + milliseconds);
 }

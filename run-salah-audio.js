@@ -33,7 +33,11 @@ const computedTimes = computeSalahTimes(now, {
 });
 
 const salahTimes = resolveAdhanSalahTimes(computedTimes, adhanOptions.asrMadhab);
-const specialTimes = resolveSpecialSalahTimes(computedTimes);
+const specialTimes = resolveSpecialSalahTimes(computedTimes, {
+  now,
+  latitude: adhanOptions.latitude,
+  longitude: adhanOptions.longitude,
+});
 
 const jamaatTimes = getAllJamaatTimes().filter((entry) => entry.isSet);
 const masjidSchedules = buildMasjidSchedules(
