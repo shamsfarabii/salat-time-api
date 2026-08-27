@@ -1,5 +1,5 @@
 import { computeSalahTimes } from '../compute.js';
-import { isSameMinute, truncateToMinute } from '../utils/time-match.js';
+import { isSameSecond, truncateToSecond } from '../utils/time-match.js';
 import { SPECIAL_TIME_EVENTS } from './constants.js';
 import { resolveSpecialSalahTimes } from './resolve-special-times.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
@@ -13,7 +13,7 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  * @typedef {Object} SpecialTimeSchedulerOptions
  * @property {number} latitude
  * @property {number} longitude
- * @property {number} [intervalMs=60000] How often to poll for special-time playback
+ * @property {number} [intervalMs=1000] How often to poll for special-time playback
  * @property {string} [audioBaseDir]
  * @property {string[]} [events]
  * @property {(filePath: string, context: {
@@ -42,7 +42,7 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
 export function startSpecialTimeScheduler({
   latitude,
   longitude,
-  intervalMs = 60_000,
+  intervalMs = 1_000,
   audioBaseDir,
   events = SPECIAL_TIME_EVENTS,
   playAudio,
@@ -83,7 +83,8 @@ export function startSpecialTimeScheduler({
   const checkNow = async () => {
     const now = new Date();
     const specialTimes = resolveSpecialSalahTimes(
-      computeSalahTimes(now, { latitude, longitude })
+      computeSalahTimes(now, { latitude, longitude }),
+      { now, latitude, longitude }
     );
 
     /** @type {{ event: string, time: Date, audioKind: 'special' } | null} */
@@ -99,11 +100,11 @@ export function startSpecialTimeScheduler({
         continue;
       }
 
-      if (!isSameMinute(now, eventTime)) {
+      if (!isSameSecond(now, eventTime)) {
         continue;
       }
 
-      const playKey = `${event}-special-${truncateToMinute(now)}`;
+      const playKey = `${event}-special-${truncateToSecond(now)}`;
       const audioFile = getSpecialTimeAudioFileName(event);
       const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
       const result = await playOnce(playKey, resolvedPath, {
