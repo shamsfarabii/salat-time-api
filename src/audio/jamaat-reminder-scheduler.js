@@ -3,17 +3,18 @@ import { listJamaatTimes } from '../db/repositories/jamaat-times.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
 import {
   buildMasjidSchedules,
+  getMasjidMinutesBeforeReference,
   getMatchingJamaatReminder,
   getReminderTimeForToday,
-  resolveJamaatTimeForToday,
+  resolveMasjidReferenceTimeForToday,
 } from './jamaat-time-utils.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
 
 /**
  * @typedef {Object} JamaatReminderSchedulerOptions
  * @property {number} [intervalMs=60000] How often to poll for a matching reminder time
- * @property {number} [latitude] Required for Maghrib jamaat (waqt + 4 min)
- * @property {number} [longitude] Required for Maghrib jamaat (waqt + 4 min)
+ * @property {number} [latitude] Required for Maghrib Masjid (5 min before waqt)
+ * @property {number} [longitude] Required for Maghrib Masjid (5 min before waqt)
  * @property {string} [audioBaseDir]
  * @property {string} [dbPath]
  * @property {(filePath: string, context: {
@@ -36,7 +37,7 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  */
 
 /**
- * Poll at a fixed interval and play Masjid audio 10 minutes before stored jamaat times.
+ * Poll at a fixed interval and play Masjid audio before jamaat (Maghrib: 5 min before waqt).
  *
  * @param {JamaatReminderSchedulerOptions} options
  * @returns {{ stop: () => void, checkNow: () => Promise<{
@@ -90,7 +91,8 @@ export function startJamaatReminderScheduler({
     }
 
     const reminderTime = getReminderTimeForToday(now, match, location);
-    const jamaatTime = resolveJamaatTimeForToday(now, match, location);
+    const jamaatTime = resolveMasjidReferenceTimeForToday(now, match, location);
+    const minutesBefore = getMasjidMinutesBeforeReference(match);
 
     const resolvedPath = resolveAudioPath(match.audioFile, audioBaseDir);
     lastPlayedKey = playKey;
@@ -100,7 +102,7 @@ export function startJamaatReminderScheduler({
         prayer: match.prayer,
         reminderTime,
         jamaatTime,
-        minutesBefore: match.minutesBefore,
+        minutesBefore,
         reminderId: match.reminderId,
         audioKind: 'masjid',
       });
@@ -113,7 +115,7 @@ export function startJamaatReminderScheduler({
       prayer: match.prayer,
       reminderTime,
       jamaatTime,
-      minutesBefore: match.minutesBefore,
+      minutesBefore,
       reminderId: match.reminderId,
       audioKind: /** @type {'masjid'} */ ('masjid'),
     };

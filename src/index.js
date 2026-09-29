@@ -33,6 +33,7 @@ export {
   DEFAULT_ADHAN_AUDIO_FILES,
   DEFAULT_AUDIO_BASE_DIR,
   DEFAULT_LOCATION,
+  MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
   START_SECONDS_BEFORE_ADHAN,
   checkAndPlayAdhan,
@@ -50,11 +51,13 @@ export {
   startSpecialTimeScheduler,
   buildDailyTime,
   buildMasjidSchedules,
+  getMasjidMinutesBeforeReference,
   getMatchingJamaatReminder,
   getReminderTimeForToday,
-  MAGRIB_JAMAAT_MINUTES_AFTER_WAQT,
   mapReminderRowToSchedule,
   resolveJamaatTimeForToday,
+  resolveMagribWaqtForToday,
+  resolveMasjidReferenceTimeForToday,
   subtractMinutesFromClockTime,
 } from './audio/index.js';
 

@@ -5,6 +5,9 @@ import { resolveAudioPath } from './resolve-audio-path.js';
 /** Minutes before jamaat when the Masjid reminder audio plays. */
 export const MASJID_MINUTES_BEFORE_JAMAAT = 10;
 
+/** Maghrib Masjid audio plays this many minutes before calculated maghrib waqt (not jamaat DB time). */
+export const MAGRIB_MASJID_MINUTES_BEFORE_WAQT = 5;
+
 /** Seconds before adhan when the Start cue audio plays. */
 export const START_SECONDS_BEFORE_ADHAN = 4;
 

@@ -17,6 +17,7 @@ export { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
 export { resolveSpecialSalahTimes } from './resolve-special-times.js';
 export { startJamaatReminderScheduler } from './jamaat-reminder-scheduler.js';
 export {
+  MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
   START_SECONDS_BEFORE_ADHAN,
   PRAYER_AUDIO_FILE_NAMES,
@@ -34,10 +35,12 @@ export {
 export {
   buildDailyTime,
   buildMasjidSchedules,
+  getMasjidMinutesBeforeReference,
   getMatchingJamaatReminder,
   getReminderTimeForToday,
-  MAGRIB_JAMAAT_MINUTES_AFTER_WAQT,
   mapReminderRowToSchedule,
   resolveJamaatTimeForToday,
+  resolveMagribWaqtForToday,
+  resolveMasjidReferenceTimeForToday,
   subtractMinutesFromClockTime,
 } from './jamaat-time-utils.js';

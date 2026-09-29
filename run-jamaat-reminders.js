@@ -1,4 +1,5 @@
 import {
+  MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
   createNodeAudioPlayer,
   getDefaultAdhanOptions,
@@ -10,8 +11,7 @@ import { getAllJamaatTimes, listJamaatTimes } from './src/db/index.js';
 import {
   buildMasjidSchedules,
   getReminderTimeForToday,
-  MAGRIB_JAMAAT_MINUTES_AFTER_WAQT,
-  resolveJamaatTimeForToday,
+  resolveMasjidReferenceTimeForToday,
 } from './src/audio/jamaat-time-utils.js';
 
 const adhanOptions = getDefaultAdhanOptions();
@@ -30,7 +30,7 @@ const masjidSchedules = buildMasjidSchedules(
 
 console.log('Jamaat Masjid reminder scheduler started');
 console.log(
-  `Masjid audio plays ${MASJID_MINUTES_BEFORE_JAMAAT} minutes before jamaat (magrib at waqt + ${MAGRIB_JAMAAT_MINUTES_AFTER_WAQT} min)`
+  `Masjid audio: ${MASJID_MINUTES_BEFORE_JAMAAT} min before jamaat; magrib ${MAGRIB_MASJID_MINUTES_BEFORE_WAQT} min before waqt`
 );
 console.log('Jamaat times:');
 
@@ -48,14 +48,19 @@ if (jamaatTimes.length === 0) {
     }
 
     const reminderTime = getReminderTimeForToday(now, schedule, location);
-    const jamaatAt = resolveJamaatTimeForToday(now, schedule, location);
-    const jamaatLabel =
-      jamaatTime.prayer === 'magrib'
-        ? formatJamaatClock(jamaatAt.getHours(), jamaatAt.getMinutes())
-        : jamaatTime.formatted;
+
+    if (jamaatTime.prayer === 'magrib') {
+      const magribWaqt = resolveMasjidReferenceTimeForToday(now, schedule, location);
+      const waqtLabel = formatJamaatClock(magribWaqt.getHours(), magribWaqt.getMinutes());
+
+      console.log(
+        `  ${jamaatTime.prayer.padEnd(6)} ${formatJamaatClock(reminderTime.getHours(), reminderTime.getMinutes())}  ${schedule.audioFile}  →  waqt ${waqtLabel}`
+      );
+      continue;
+    }
 
     console.log(
-      `  ${jamaatTime.prayer.padEnd(6)} ${formatJamaatClock(reminderTime.getHours(), reminderTime.getMinutes())}  ${schedule.audioFile}  →  jamaat ${jamaatLabel}`
+      `  ${jamaatTime.prayer.padEnd(6)} ${formatJamaatClock(reminderTime.getHours(), reminderTime.getMinutes())}  ${schedule.audioFile}  →  jamaat ${jamaatTime.formatted}`
     );
   }
 }
@@ -66,8 +71,9 @@ const scheduler = startJamaatReminderScheduler({
   audioBaseDir: adhanOptions.audioBaseDir,
   playAudio,
   onPlayed: ({ prayer, reminderTime, minutesBefore }) => {
+    const reference = prayer === 'magrib' ? 'waqt' : 'jamaat';
     console.log(
-      `Playing Masjid reminder for ${prayer} at ${reminderTime.toLocaleTimeString()} (${minutesBefore} min before jamaat)`
+      `Playing Masjid reminder for ${prayer} at ${reminderTime.toLocaleTimeString()} (${minutesBefore} min before ${reference})`
     );
   },
   onError: (error) => {

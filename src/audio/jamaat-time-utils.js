@@ -1,15 +1,12 @@
 import { getMagribTime } from '../salah/magrib.js';
-import { DEFAULT_CAUTION_MINUTES } from '../salah/iftar.js';
 import { addMinutes } from '../utils/date.js';
 import { isSameMinute } from '../utils/time-match.js';
 import {
+  MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
   getMasjidAudioFileName,
   masjidAudioExists,
 } from './prayer-audio-files.js';
-
-/** Maghrib jamaat is scheduled this many minutes after calculated maghrib waqt. */
-export const MAGRIB_JAMAAT_MINUTES_AFTER_WAQT = DEFAULT_CAUTION_MINUTES;
 
 /**
  * @typedef {{ latitude: number, longitude: number }} JamaatLocation
@@ -83,34 +80,45 @@ export function buildMasjidSchedules(jamaatTimes, audioBaseDir) {
       return [];
     }
 
-    const isMagrib = jamaatTime.prayer === 'magrib';
-
     return [{
       reminderId: `${jamaatTime.prayer}-masjid`,
       jamaatTimeId: jamaatTime.id,
       prayer: jamaatTime.prayer,
       jamaatHours: jamaatTime.hours,
       jamaatMinutes: jamaatTime.minutes,
-      minutesBefore: isMagrib ? 0 : MASJID_MINUTES_BEFORE_JAMAAT,
+      minutesBefore: MASJID_MINUTES_BEFORE_JAMAAT,
       audioFile: getMasjidAudioFileName(jamaatTime.prayer),
     }];
   });
 }
 
 /**
+ * Calculated maghrib waqt (sunset) for the calendar day of `now`.
+ *
  * @param {Date} now
- * @param {JamaatReminderSchedule} schedule
  * @param {JamaatLocation} [location]
- * @returns {Date}
+ * @returns {Date | null}
  */
-export function resolveJamaatTimeForToday(now, schedule, location) {
-  if (schedule.prayer === 'magrib' && hasValidLocation(location)) {
-    const magribWaqt = getMagribTime(now, location.latitude, location.longitude);
-    if (magribWaqt instanceof Date && !Number.isNaN(magribWaqt.getTime())) {
-      return addMinutes(magribWaqt, MAGRIB_JAMAAT_MINUTES_AFTER_WAQT);
-    }
+export function resolveMagribWaqtForToday(now, location) {
+  if (!hasValidLocation(location)) {
+    return null;
   }
 
+  const magribWaqt = getMagribTime(now, location.latitude, location.longitude);
+  if (!(magribWaqt instanceof Date) || Number.isNaN(magribWaqt.getTime())) {
+    return null;
+  }
+
+  return magribWaqt;
+}
+
+/**
+ * @param {Date} now
+ * @param {JamaatReminderSchedule} schedule
+ * @param {JamaatLocation} [_location]
+ * @returns {Date}
+ */
+export function resolveJamaatTimeForToday(now, schedule, _location) {
   return buildDailyTime(now, schedule.jamaatHours, schedule.jamaatMinutes);
 }
 
@@ -121,8 +129,46 @@ export function resolveJamaatTimeForToday(now, schedule, location) {
  * @returns {Date}
  */
 export function getReminderTimeForToday(now, schedule, location) {
+  if (schedule.prayer === 'magrib') {
+    const magribWaqt = resolveMagribWaqtForToday(now, location);
+    if (magribWaqt) {
+      return addMinutes(magribWaqt, -MAGRIB_MASJID_MINUTES_BEFORE_WAQT);
+    }
+  }
+
   const jamaatTime = resolveJamaatTimeForToday(now, schedule, location);
   return addMinutes(jamaatTime, -schedule.minutesBefore);
+}
+
+/**
+ * Minutes before the reference prayer time (waqt for magrib, jamaat for others).
+ *
+ * @param {JamaatReminderSchedule} schedule
+ * @returns {number}
+ */
+export function getMasjidMinutesBeforeReference(schedule) {
+  return schedule.prayer === 'magrib'
+    ? MAGRIB_MASJID_MINUTES_BEFORE_WAQT
+    : schedule.minutesBefore;
+}
+
+/**
+ * Reference instant used for logging and callbacks (waqt for magrib, jamaat for others).
+ *
+ * @param {Date} now
+ * @param {JamaatReminderSchedule} schedule
+ * @param {JamaatLocation} [location]
+ * @returns {Date}
+ */
+export function resolveMasjidReferenceTimeForToday(now, schedule, location) {
+  if (schedule.prayer === 'magrib') {
+    const magribWaqt = resolveMagribWaqtForToday(now, location);
+    if (magribWaqt) {
+      return magribWaqt;
+    }
+  }
+
+  return resolveJamaatTimeForToday(now, schedule, location);
 }
 
 /**
