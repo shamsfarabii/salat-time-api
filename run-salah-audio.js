@@ -21,6 +21,8 @@ import { getAllJamaatTimes, listJamaatTimes } from './src/db/index.js';
 import {
   buildMasjidSchedules,
   getReminderTimeForToday,
+  MAGRIB_JAMAAT_MINUTES_AFTER_WAQT,
+  resolveJamaatTimeForToday,
 } from './src/audio/jamaat-time-utils.js';
 
 const adhanOptions = getDefaultAdhanOptions();
@@ -68,7 +70,14 @@ for (const event of SPECIAL_TIME_EVENTS) {
   );
 }
 
-console.log(`\nJamaat Masjid reminders (${MASJID_MINUTES_BEFORE_JAMAAT} min before jamaat):`);
+const location = {
+  latitude: adhanOptions.latitude,
+  longitude: adhanOptions.longitude,
+};
+
+console.log(
+  `\nJamaat Masjid reminders (${MASJID_MINUTES_BEFORE_JAMAAT} min before jamaat; magrib at waqt + ${MAGRIB_JAMAAT_MINUTES_AFTER_WAQT} min):`
+);
 if (jamaatTimes.length === 0) {
   console.log('  (none configured — use: npm run jamaat -- set jamat fajr 5:55AM)');
 } else {
@@ -79,9 +88,15 @@ if (jamaatTimes.length === 0) {
       continue;
     }
 
-    const reminderTime = getReminderTimeForToday(now, schedule);
+    const reminderTime = getReminderTimeForToday(now, schedule, location);
+    const jamaatAt = resolveJamaatTimeForToday(now, schedule, location);
+    const jamaatLabel =
+      jamaatTime.prayer === 'magrib'
+        ? formatJamaatClock(jamaatAt.getHours(), jamaatAt.getMinutes())
+        : jamaatTime.formatted;
+
     console.log(
-      `  ${jamaatTime.prayer.padEnd(6)} ${formatJamaatClock(reminderTime.getHours(), reminderTime.getMinutes())}  ${schedule.audioFile}  →  jamaat ${jamaatTime.formatted}`
+      `  ${jamaatTime.prayer.padEnd(6)} ${formatJamaatClock(reminderTime.getHours(), reminderTime.getMinutes())}  ${schedule.audioFile}  →  jamaat ${jamaatLabel}`
     );
   }
 }
@@ -99,6 +114,8 @@ const adhanScheduler = startAdhanScheduler({
 });
 
 const jamaatScheduler = startJamaatReminderScheduler({
+  latitude: adhanOptions.latitude,
+  longitude: adhanOptions.longitude,
   audioBaseDir: adhanOptions.audioBaseDir,
   playAudio,
   onPlayed: ({ prayer, reminderTime, minutesBefore }) => {

@@ -1,9 +1,31 @@
+import { getMagribTime } from '../salah/magrib.js';
+import { DEFAULT_CAUTION_MINUTES } from '../salah/iftar.js';
+import { addMinutes } from '../utils/date.js';
 import { isSameMinute } from '../utils/time-match.js';
 import {
   MASJID_MINUTES_BEFORE_JAMAAT,
   getMasjidAudioFileName,
   masjidAudioExists,
 } from './prayer-audio-files.js';
+
+/** Maghrib jamaat is scheduled this many minutes after calculated maghrib waqt. */
+export const MAGRIB_JAMAAT_MINUTES_AFTER_WAQT = DEFAULT_CAUTION_MINUTES;
+
+/**
+ * @typedef {{ latitude: number, longitude: number }} JamaatLocation
+ */
+
+/**
+ * @param {JamaatLocation | undefined} location
+ * @returns {boolean}
+ */
+function hasValidLocation(location) {
+  return (
+    location !== undefined &&
+    Number.isFinite(location.latitude) &&
+    Number.isFinite(location.longitude)
+  );
+}
 
 /**
  * Build a Date for today at the given clock time.
@@ -61,13 +83,15 @@ export function buildMasjidSchedules(jamaatTimes, audioBaseDir) {
       return [];
     }
 
+    const isMagrib = jamaatTime.prayer === 'magrib';
+
     return [{
       reminderId: `${jamaatTime.prayer}-masjid`,
       jamaatTimeId: jamaatTime.id,
       prayer: jamaatTime.prayer,
       jamaatHours: jamaatTime.hours,
       jamaatMinutes: jamaatTime.minutes,
-      minutesBefore: MASJID_MINUTES_BEFORE_JAMAAT,
+      minutesBefore: isMagrib ? 0 : MASJID_MINUTES_BEFORE_JAMAAT,
       audioFile: getMasjidAudioFileName(jamaatTime.prayer),
     }];
   });
@@ -76,26 +100,40 @@ export function buildMasjidSchedules(jamaatTimes, audioBaseDir) {
 /**
  * @param {Date} now
  * @param {JamaatReminderSchedule} schedule
+ * @param {JamaatLocation} [location]
  * @returns {Date}
  */
-export function getReminderTimeForToday(now, schedule) {
-  const reminderClock = subtractMinutesFromClockTime(
-    schedule.jamaatHours,
-    schedule.jamaatMinutes,
-    schedule.minutesBefore
-  );
+export function resolveJamaatTimeForToday(now, schedule, location) {
+  if (schedule.prayer === 'magrib' && hasValidLocation(location)) {
+    const magribWaqt = getMagribTime(now, location.latitude, location.longitude);
+    if (magribWaqt instanceof Date && !Number.isNaN(magribWaqt.getTime())) {
+      return addMinutes(magribWaqt, MAGRIB_JAMAAT_MINUTES_AFTER_WAQT);
+    }
+  }
 
-  return buildDailyTime(now, reminderClock.hours, reminderClock.minutes);
+  return buildDailyTime(now, schedule.jamaatHours, schedule.jamaatMinutes);
+}
+
+/**
+ * @param {Date} now
+ * @param {JamaatReminderSchedule} schedule
+ * @param {JamaatLocation} [location]
+ * @returns {Date}
+ */
+export function getReminderTimeForToday(now, schedule, location) {
+  const jamaatTime = resolveJamaatTimeForToday(now, schedule, location);
+  return addMinutes(jamaatTime, -schedule.minutesBefore);
 }
 
 /**
  * @param {Date} now
  * @param {JamaatReminderSchedule[]} schedules
+ * @param {JamaatLocation} [location]
  * @returns {JamaatReminderSchedule | null}
  */
-export function getMatchingJamaatReminder(now, schedules) {
+export function getMatchingJamaatReminder(now, schedules, location) {
   for (const schedule of schedules) {
-    const reminderTime = getReminderTimeForToday(now, schedule);
+    const reminderTime = getReminderTimeForToday(now, schedule, location);
     if (isSameMinute(now, reminderTime)) {
       return schedule;
     }
