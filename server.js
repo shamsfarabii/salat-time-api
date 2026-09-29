@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { computeSalahTimes } from './src/index.js';
 import { mountJamaatRoutes } from './src/db/routes.js';
@@ -5,12 +7,16 @@ import { DEG_TO_RAD, RAD_TO_DEG } from './src/constants.js';
 import { addMinutes } from './src/utils/date.js';
 import { ISHRAQ_MINUTES_AFTER_SUNRISE } from './src/constants.js';
 
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+const jamaatPublicDir = path.join(packageRoot, 'public', 'jamaat');
+
 const app = express();
+const HOST = process.env.HOST ?? '0.0.0.0';
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use((request, response, next) => {
   response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (request.method === 'OPTIONS') {
@@ -323,10 +329,16 @@ app.post('/salah-times', (request, response) => {
 
 mountJamaatRoutes(app);
 
+app.use('/jamaat', express.static(jamaatPublicDir));
+app.get('/jamaat', (_request, response) => {
+  response.sendFile(path.join(jamaatPublicDir, 'index.html'));
+});
+
 app.use((_request, response) => {
   response.status(404).json({ error: 'Not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Salah Time API listening on http${process.env.USE_SSL ? 's' : ''}://${process.env.HOST || 'localhost'}:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Salah Time API listening on http://${HOST}:${PORT}`);
+  console.log(`Jamaat admin UI: http://${HOST}:${PORT}/jamaat`);
 });

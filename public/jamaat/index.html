@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jamaat times</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <header>
+        <h1>Jamaat times</h1>
+        <p class="subtitle">
+          View and set congregation times on this machine. Changes are saved to the local SQLite database used by salah-audio.
+        </p>
+        <div id="status-bar" class="status-bar" data-state="loading">Starting…</div>
+      </header>
+
+      <ul id="prayer-list" class="prayer-list" aria-label="Prayer jamaat times"></ul>
+
+      <div class="actions">
+        <button type="button" id="refresh">Refresh</button>
+        <button type="button" id="save-all" class="primary">Save all filled rows</button>
+      </div>
+
+      <p class="hint">
+        <strong>Remote access (Mac → Fedora via SSH):</strong> on the server run
+        <code>npm run jamaat-ui</code>, then on your Mac:
+        <code>ssh -L 3847:127.0.0.1:3847 user@fedora-host</code>
+        and open <code>http://127.0.0.1:3847</code>. Time format: <code>5:55 AM</code>, <code>6:35 PM</code>, or <code>17:30</code>.
+      </p>
+    </div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

@@ -2,9 +2,11 @@ import express from 'express';
 import {
   deleteJamaatReminder,
   deleteJamaatTime,
+  getAllJamaatTimes,
   listActiveReminders,
   listJamaatTimes,
   listRemindersByJamaatTime,
+  setJamaatTime,
   updateJamaatReminder,
   updateJamaatTime,
   upsertJamaatReminder,
@@ -52,6 +54,34 @@ function parseBoolean(value) {
  * @param {import('express').Router} router
  */
 export function registerJamaatRoutes(router) {
+  router.get('/jamaat-times/setup', (_request, response) => {
+    response.json({
+      prayers: getAllJamaatTimes(),
+    });
+  });
+
+  router.post('/jamaat-times/set', (request, response) => {
+    const prayer = request.body?.prayer;
+    const time = request.body?.time;
+
+    if (prayer === undefined || prayer === null || String(prayer).trim() === '') {
+      response.status(400).json({ error: 'prayer is required' });
+      return;
+    }
+
+    if (time === undefined || time === null || String(time).trim() === '') {
+      response.status(400).json({ error: 'time is required' });
+      return;
+    }
+
+    try {
+      const result = setJamaatTime(String(prayer).trim(), String(time).trim());
+      response.json(result);
+    } catch (error) {
+      response.status(400).json({ error: getErrorMessage(error) });
+    }
+  });
+
   router.get('/jamaat-times', (_request, response) => {
     response.json({
       jamaat_times: listJamaatTimes(),
