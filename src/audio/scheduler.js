@@ -1,7 +1,11 @@
 import { computeSalahTimes } from '../compute.js';
 import { isSameMinute, truncateToMinute } from '../utils/time-match.js';
 import { ADHAN_PRAYERS } from './constants.js';
-import { DEFAULT_ADHAN_AUDIO_FILES, DEFAULT_ASR_MADHAB } from './config.js';
+import {
+  DEFAULT_ADHAN_AUDIO_FILES,
+  DEFAULT_ASR_MADHAB,
+  DEFAULT_AUDIO_BASE_DIR,
+} from './config.js';
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
 import { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
@@ -43,7 +47,7 @@ export function startAdhanScheduler({
   longitude,
   intervalMs = 1000,
   audioFiles = DEFAULT_ADHAN_AUDIO_FILES,
-  audioBaseDir,
+  audioBaseDir = DEFAULT_AUDIO_BASE_DIR,
   prayers = ADHAN_PRAYERS,
   playAudio,
   onPlayed,

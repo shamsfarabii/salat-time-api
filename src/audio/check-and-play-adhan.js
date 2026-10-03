@@ -1,6 +1,10 @@
 import { computeSalahTimes } from '../compute.js';
 import { ADHAN_PRAYERS } from './constants.js';
-import { DEFAULT_ADHAN_AUDIO_FILES, DEFAULT_ASR_MADHAB } from './config.js';
+import {
+  DEFAULT_ADHAN_AUDIO_FILES,
+  DEFAULT_ASR_MADHAB,
+  DEFAULT_AUDIO_BASE_DIR,
+} from './config.js';
 import { getMatchingAdhanPrayer } from './get-matching-adhan.js';
 import { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
@@ -38,7 +42,7 @@ export async function checkAndPlayAdhan({
   longitude,
   now = new Date(),
   audioFiles = DEFAULT_ADHAN_AUDIO_FILES,
-  audioBaseDir,
+  audioBaseDir = DEFAULT_AUDIO_BASE_DIR,
   prayers = ADHAN_PRAYERS,
   playAudio,
   onPlayed,

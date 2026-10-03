@@ -1,3 +1,4 @@
+import { DEFAULT_AUDIO_BASE_DIR } from './config.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
 import {
   getAdhanAudioFileName,
@@ -32,7 +33,12 @@ export async function playStartThenAdhan({
   playAudio,
   onPlayed,
 }) {
-  if (startAudioExists(prayer, audioBaseDir)) {
+  const resolvedAudioBaseDir = audioBaseDir ?? DEFAULT_AUDIO_BASE_DIR;
+
+  const runSequence = async (
+    playOne
+  ) => {
+    if (startAudioExists(prayer, resolvedAudioBaseDir)) {
     const startContext = {
       prayer,
       time: prayerTime,
@@ -40,9 +46,9 @@ export async function playStartThenAdhan({
     };
     const startPath = resolveAudioPath(
       getStartAudioFileName(prayer),
-      audioBaseDir
+        resolvedAudioBaseDir
     );
-    await playAudio(startPath, startContext);
+    await playOne(startPath, startContext);
     onPlayed?.(startContext);
   }
 
@@ -52,9 +58,16 @@ export async function playStartThenAdhan({
     time: prayerTime,
     audioKind: 'adhan',
   };
-  const adhanPath = resolveAudioPath(audioFile, audioBaseDir);
-  await playAudio(adhanPath, adhanContext);
+  const adhanPath = resolveAudioPath(audioFile, resolvedAudioBaseDir);
+  await playOne(adhanPath, adhanContext);
   onPlayed?.(adhanContext);
 
-  return adhanContext;
+    return adhanContext;
+  };
+
+  if (typeof playAudio.playExclusive === 'function') {
+    return playAudio.playExclusive(runSequence);
+  }
+
+  return runSequence((filePath, context) => playAudio(filePath, context));
 }
