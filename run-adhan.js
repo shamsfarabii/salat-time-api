@@ -1,7 +1,6 @@
 import { computeSalahTimes } from './src/compute.js';
 import {
   ADHAN_PRAYERS,
-  START_SECONDS_BEFORE_ADHAN,
   createNodeAudioPlayer,
   getAdhanAudioFileName,
   getDefaultAdhanOptions,
@@ -23,17 +22,14 @@ const times = resolveAdhanSalahTimes(
 
 console.log('Adhan scheduler started');
 console.log(`Location: ${adhanOptions.latitude}, ${adhanOptions.longitude}`);
-console.log(`Start cue plays ${START_SECONDS_BEFORE_ADHAN} seconds before each adhan`);
+console.log('At each prayer time: Start cue, then Adhan when Start ends');
 console.log('Today\'s schedule:');
 
 for (const prayer of ADHAN_PRAYERS) {
-  const adhanTime = times[prayer];
-  const startTime = adhanTime
-    ? new Date(adhanTime.getTime() - START_SECONDS_BEFORE_ADHAN * 1000)
-    : null;
+  const prayerTime = times[prayer];
 
   console.log(
-    `  ${prayer.padEnd(6)} ${startTime?.toLocaleTimeString() ?? 'n/a'}  ${getStartAudioFileName(prayer)}  →  ${adhanTime?.toLocaleTimeString() ?? 'n/a'}  ${getAdhanAudioFileName(prayer)}`
+    `  ${prayer.padEnd(6)} ${prayerTime?.toLocaleTimeString() ?? 'n/a'}  ${getStartAudioFileName(prayer)}  →  ${getAdhanAudioFileName(prayer)}`
   );
 }
 

@@ -1,20 +1,9 @@
 import { computeSalahTimes } from '../compute.js';
-import {
-  isSameMinute,
-  isSameSecond,
-  truncateToMinute,
-  truncateToSecond,
-} from '../utils/time-match.js';
+import { isSameMinute, truncateToMinute } from '../utils/time-match.js';
 import { ADHAN_PRAYERS } from './constants.js';
 import { DEFAULT_ADHAN_AUDIO_FILES, DEFAULT_ASR_MADHAB } from './config.js';
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
-import { resolveAudioPath } from './resolve-audio-path.js';
-import {
-  START_SECONDS_BEFORE_ADHAN,
-  getAdhanAudioFileName,
-  getStartAudioFileName,
-  startAudioExists,
-} from './prayer-audio-files.js';
+import { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
 
 /**
@@ -40,7 +29,7 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  */
 
 /**
- * Poll at a fixed interval, play Start audio 4 seconds before adhan, then adhan at salah time.
+ * Poll at a fixed interval; at each prayer time play Start audio, then Adhan when Start ends.
  *
  * @param {AdhanSchedulerOptions} options
  * @returns {{ stop: () => void, checkNow: () => Promise<{
@@ -68,34 +57,6 @@ export function startAdhanScheduler({
   const playedKeys = new Set();
   let timerId = null;
 
-  /**
-   * @param {string} playKey
-   * @param {string} resolvedPath
-   * @param {{
-   *   prayer: string,
-   *   time: Date,
-   *   audioKind: 'start' | 'adhan',
-   * }} context
-   * @returns {Promise<{ prayer: string, time: Date, audioKind: 'start' | 'adhan' } | null>}
-   */
-  const playOnce = async (playKey, resolvedPath, context) => {
-    if (playedKeys.has(playKey)) {
-      return null;
-    }
-
-    playedKeys.add(playKey);
-
-    try {
-      await playAudio(resolvedPath, context);
-    } catch (error) {
-      playedKeys.delete(playKey);
-      throw error;
-    }
-
-    onPlayed?.(context);
-    return context;
-  };
-
   const checkNow = async () => {
     const now = new Date();
     const salahTimes = resolveAdhanSalahTimes(
@@ -107,46 +68,35 @@ export function startAdhanScheduler({
     let lastResult = null;
 
     for (const prayer of prayers) {
-      const adhanTime = salahTimes[prayer];
-      if (!(adhanTime instanceof Date) || Number.isNaN(adhanTime.getTime())) {
+      const prayerTime = salahTimes[prayer];
+      if (!(prayerTime instanceof Date) || Number.isNaN(prayerTime.getTime())) {
         continue;
       }
 
-      const startTime = new Date(
-        adhanTime.getTime() - START_SECONDS_BEFORE_ADHAN * 1000
-      );
-
-      if (
-        startAudioExists(prayer, audioBaseDir) &&
-        isSameSecond(now, startTime)
-      ) {
-        const playKey = `${prayer}-start-${truncateToSecond(now)}`;
-        const startFile = getStartAudioFileName(prayer);
-        const resolvedPath = resolveAudioPath(startFile, audioBaseDir);
-        const result = await playOnce(playKey, resolvedPath, {
-          prayer,
-          time: startTime,
-          audioKind: 'start',
-        });
-
-        if (result) {
-          lastResult = result;
-        }
+      if (!isSameMinute(now, prayerTime)) {
+        continue;
       }
 
-      if (isSameMinute(now, adhanTime)) {
-        const playKey = `${prayer}-adhan-${truncateToMinute(now)}`;
-        const audioFile = audioFiles[prayer] ?? getAdhanAudioFileName(prayer);
-        const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
-        const result = await playOnce(playKey, resolvedPath, {
-          prayer,
-          time: adhanTime,
-          audioKind: 'adhan',
-        });
+      const playKey = `${prayer}-${truncateToMinute(prayerTime)}`;
+      if (playedKeys.has(playKey)) {
+        continue;
+      }
 
-        if (result) {
-          lastResult = result;
-        }
+      playedKeys.add(playKey);
+
+      try {
+        const result = await playStartThenAdhan({
+          prayer,
+          prayerTime,
+          audioFiles,
+          audioBaseDir,
+          playAudio,
+          onPlayed,
+        });
+        lastResult = result;
+      } catch (error) {
+        playedKeys.delete(playKey);
+        throw error;
       }
     }
 

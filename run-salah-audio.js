@@ -4,7 +4,6 @@ import {
   MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
   SPECIAL_TIME_EVENTS,
-  START_SECONDS_BEFORE_ADHAN,
   createNodeAudioPlayer,
   getAdhanAudioFileName,
   getDefaultAdhanOptions,
@@ -52,13 +51,10 @@ console.log(`Location: ${adhanOptions.latitude}, ${adhanOptions.longitude}`);
 
 console.log('\nAdhan schedule (Start → Adhan):');
 for (const prayer of ADHAN_PRAYERS) {
-  const adhanTime = salahTimes[prayer];
-  const startTime = adhanTime
-    ? new Date(adhanTime.getTime() - START_SECONDS_BEFORE_ADHAN * 1000)
-    : null;
+  const prayerTime = salahTimes[prayer];
 
   console.log(
-    `  ${prayer.padEnd(6)} ${startTime?.toLocaleTimeString() ?? 'n/a'}  ${getStartAudioFileName(prayer)}  →  ${adhanTime?.toLocaleTimeString() ?? 'n/a'}  ${getAdhanAudioFileName(prayer)}`
+    `  ${prayer.padEnd(6)} ${prayerTime?.toLocaleTimeString() ?? 'n/a'}  ${getStartAudioFileName(prayer)}  →  ${getAdhanAudioFileName(prayer)}`
   );
 }
 

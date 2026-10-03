@@ -2,8 +2,8 @@ import { computeSalahTimes } from '../compute.js';
 import { ADHAN_PRAYERS } from './constants.js';
 import { DEFAULT_ADHAN_AUDIO_FILES, DEFAULT_ASR_MADHAB } from './config.js';
 import { getMatchingAdhanPrayer } from './get-matching-adhan.js';
+import { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
-import { resolveAudioPath } from './resolve-audio-path.js';
 
 /**
  * @typedef {Object} CheckAndPlayAdhanOptions
@@ -13,17 +13,25 @@ import { resolveAudioPath } from './resolve-audio-path.js';
  * @property {Record<string, string>} [audioFiles]
  * @property {string} [audioBaseDir] Directory containing audio assets
  * @property {string[]} [prayers]
- * @property {(filePath: string, context: { prayer: string, time: Date }) => Promise<void>} playAudio
- * @property {(result: { prayer: string, time: Date }) => void} [onPlayed]
+ * @property {(filePath: string, context: {
+ *   prayer: string,
+ *   time: Date,
+ *   audioKind: 'start' | 'adhan',
+ * }) => Promise<void>} playAudio
+ * @property {(result: {
+ *   prayer: string,
+ *   time: Date,
+ *   audioKind: 'start' | 'adhan',
+ * }) => void} [onPlayed]
  * @property {'standard' | 'hanafi'} [asrMadhab]
  */
 
 /**
  * Compute today's salah times, check whether `now` matches any configured prayer,
- * and play the corresponding audio when it does.
+ * and play Start then Adhan when it does.
  *
  * @param {CheckAndPlayAdhanOptions} options
- * @returns {Promise<{ prayer: string, time: Date } | null>}
+ * @returns {Promise<{ prayer: string, time: Date, audioKind: 'start' | 'adhan' } | null>}
  */
 export async function checkAndPlayAdhan({
   latitude,
@@ -54,20 +62,22 @@ export async function checkAndPlayAdhan({
     return null;
   }
 
-  const audioFile = audioFiles[prayer];
-  if (!audioFile) {
-    throw new Error(`No audio file configured for prayer: ${prayer}`);
-  }
-
   const prayerTime = salahTimes[prayer];
   if (!(prayerTime instanceof Date) || Number.isNaN(prayerTime.getTime())) {
     throw new Error(`Computed time for ${prayer} is invalid`);
   }
 
-  const resolvedPath = resolveAudioPath(audioFile, audioBaseDir);
-  await playAudio(resolvedPath, { prayer, time: prayerTime });
+  const audioFile = audioFiles[prayer];
+  if (!audioFile) {
+    throw new Error(`No audio file configured for prayer: ${prayer}`);
+  }
 
-  const result = { prayer, time: prayerTime };
-  onPlayed?.(result);
-  return result;
+  return playStartThenAdhan({
+    prayer,
+    prayerTime,
+    audioFiles,
+    audioBaseDir,
+    playAudio,
+    onPlayed,
+  });
 }

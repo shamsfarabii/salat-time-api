@@ -9,6 +9,7 @@ export {
 export { getMatchingAdhanPrayer } from './get-matching-adhan.js';
 export { checkAndPlayAdhan } from './check-and-play-adhan.js';
 export { startAdhanScheduler } from './scheduler.js';
+export { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 export { startSpecialTimeScheduler } from './special-time-scheduler.js';
 export { startCustomAlarm } from './start-custom-alarm.js';
 export { createNodeAudioPlayer } from './node-player.js';
@@ -19,7 +20,6 @@ export { startJamaatReminderScheduler } from './jamaat-reminder-scheduler.js';
 export {
   MAGRIB_MASJID_MINUTES_BEFORE_WAQT,
   MASJID_MINUTES_BEFORE_JAMAAT,
-  START_SECONDS_BEFORE_ADHAN,
   PRAYER_AUDIO_FILE_NAMES,
   audioFileExists,
   buildDefaultAdhanAudioFiles,
