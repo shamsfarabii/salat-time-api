@@ -12,7 +12,7 @@ export { getSolarElevation } from './astronomy/solar-position.js';
 export { getSolarNoon, getSunElevationCrossings } from './astronomy/sun-events.js';
 
 export {
-  ASTRONOMICAL_TWILIGHT_ELEVATION, DAY_MS, DEG_TO_RAD, HORIZON_ELEVATION, ISHRAQ_MINUTES_AFTER_SUNRISE, RAD_TO_DEG, RED_SKY_ELEVATION
+  ASTRONOMICAL_TWILIGHT_ELEVATION, DAY_MS, DEG_TO_RAD, HORIZON_ELEVATION, ISHRAQ_MINUTES_AFTER_SUNRISE, RAD_TO_DEG, RED_SKY_ELEVATION, ZUHR_MINUTES_AFTER_ZAWAL
 } from './constants.js';
 
 export {

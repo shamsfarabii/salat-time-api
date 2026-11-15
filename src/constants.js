@@ -10,3 +10,6 @@ export const ASTRONOMICAL_TWILIGHT_ELEVATION = -18;
 
 /** Minutes after sunrise when Ishraq begins (matches API `ishraq` / `rise + 15 min`). */
 export const ISHRAQ_MINUTES_AFTER_SUNRISE = 15;
+
+/** Minutes after Zawal (solar noon) when Zuhr/Dhuhr waqt begins. */
+export const ZUHR_MINUTES_AFTER_ZAWAL = 5;
