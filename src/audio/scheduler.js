@@ -9,12 +9,16 @@ import {
 import { resolveAdhanSalahTimes } from './resolve-adhan-times.js';
 import { playStartThenAdhan } from './play-prayer-adhan-sequence.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
+import {
+  createDeferredTimer,
+  delayUntil,
+  startOfNextLocalDay,
+} from './event-timer.js';
 
 /**
  * @typedef {Object} AdhanSchedulerOptions
  * @property {number} latitude
  * @property {number} longitude
- * @property {number} [intervalMs=1000] How often to poll for Start/Adhan playback
  * @property {Record<string, string>} [audioFiles]
  * @property {string} [audioBaseDir]
  * @property {string[]} [prayers]
@@ -33,7 +37,35 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  */
 
 /**
- * Poll at a fixed interval; at each prayer time play Start audio, then Adhan when Start ends.
+ * @param {Date} referenceDate
+ * @param {number} latitude
+ * @param {number} longitude
+ * @param {'standard' | 'hanafi'} asrMadhab
+ * @param {string[]} prayers
+ * @returns {Array<{ prayer: string, time: Date }>}
+ */
+function getOrderedPrayerEvents(referenceDate, latitude, longitude, asrMadhab, prayers) {
+  const salahTimes = resolveAdhanSalahTimes(
+    computeSalahTimes(referenceDate, { latitude, longitude }),
+    asrMadhab
+  );
+
+  return prayers
+    .map((prayer) => {
+      const time = salahTimes[prayer];
+      if (!(time instanceof Date) || Number.isNaN(time.getTime())) {
+        return null;
+      }
+
+      return { prayer, time };
+    })
+    .filter((entry) => entry !== null)
+    .sort((a, b) => a.time.getTime() - b.time.getTime());
+}
+
+/**
+ * At each prayer time play Start audio, then Adhan when Start ends.
+ * Uses a single timer until the next event instead of polling the clock.
  *
  * @param {AdhanSchedulerOptions} options
  * @returns {{ stop: () => void, checkNow: () => Promise<{
@@ -45,7 +77,6 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
 export function startAdhanScheduler({
   latitude,
   longitude,
-  intervalMs = 1000,
   audioFiles = DEFAULT_ADHAN_AUDIO_FILES,
   audioBaseDir = DEFAULT_AUDIO_BASE_DIR,
   prayers = ADHAN_PRAYERS,
@@ -59,7 +90,7 @@ export function startAdhanScheduler({
   }
 
   const playedKeys = new Set();
-  let timerId = null;
+  const timer = createDeferredTimer();
 
   const checkNow = async () => {
     const now = new Date();
@@ -107,17 +138,45 @@ export function startAdhanScheduler({
     return lastResult;
   };
 
-  const runTick = createNonOverlappingTickRunner(checkNow, onError);
+  const armNextWake = () => {
+    if (timer.stopped) {
+      return;
+    }
 
-  timerId = setInterval(runTick, intervalMs);
-  runTick();
+    const now = new Date();
+    const nowMinute = truncateToMinute(now);
+    const dayEvents = getOrderedPrayerEvents(now, latitude, longitude, asrMadhab, prayers);
+
+    for (const event of dayEvents) {
+      const eventMinute = truncateToMinute(event.time);
+      if (eventMinute < nowMinute) {
+        continue;
+      }
+
+      const playKey = `${event.prayer}-${eventMinute}`;
+      if (eventMinute === nowMinute && playedKeys.has(playKey)) {
+        continue;
+      }
+
+      const wakeAt = new Date(eventMinute);
+      timer.schedule(delayUntil(wakeAt, now), runWake);
+      return;
+    }
+
+    const nextDay = startOfNextLocalDay(now);
+    timer.schedule(delayUntil(nextDay, now) + 1_000, runWake);
+  };
+
+  const runWake = createNonOverlappingTickRunner(async () => {
+    await checkNow();
+    armNextWake();
+  }, onError);
+
+  armNextWake();
 
   return {
     stop: () => {
-      if (timerId !== null) {
-        clearInterval(timerId);
-        timerId = null;
-      }
+      timer.stop();
     },
     checkNow,
   };

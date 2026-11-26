@@ -8,12 +8,16 @@ import {
   specialTimeAudioExists,
 } from './prayer-audio-files.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
+import {
+  createDeferredTimer,
+  delayUntil,
+  startOfNextLocalDay,
+} from './event-timer.js';
 
 /**
  * @typedef {Object} SpecialTimeSchedulerOptions
  * @property {number} latitude
  * @property {number} longitude
- * @property {number} [intervalMs=1000] How often to poll for special-time playback
  * @property {string} [audioBaseDir]
  * @property {string[]} [events]
  * @property {(filePath: string, context: {
@@ -30,7 +34,43 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  */
 
 /**
- * Poll at a fixed interval and play Start cue audio at sunrise, tahajjud (night2), and ishraq.
+ * @param {string[]} events
+ * @param {string | undefined} audioBaseDir
+ * @returns {string[]}
+ */
+function filterEventsWithAudio(events, audioBaseDir) {
+  return events.filter((event) => specialTimeAudioExists(event, audioBaseDir));
+}
+
+/**
+ * @param {Date} referenceDate
+ * @param {number} latitude
+ * @param {number} longitude
+ * @param {string[]} eventsWithAudio
+ * @returns {Array<{ event: string, time: Date }>}
+ */
+function getOrderedSpecialEvents(referenceDate, latitude, longitude, eventsWithAudio) {
+  const specialTimes = resolveSpecialSalahTimes(
+    computeSalahTimes(referenceDate, { latitude, longitude }),
+    { now: referenceDate, latitude, longitude }
+  );
+
+  return eventsWithAudio
+    .map((event) => {
+      const time = specialTimes[event];
+      if (!(time instanceof Date) || Number.isNaN(time.getTime())) {
+        return null;
+      }
+
+      return { event, time };
+    })
+    .filter((entry) => entry !== null)
+    .sort((a, b) => a.time.getTime() - b.time.getTime());
+}
+
+/**
+ * Play Start cue audio at sunrise, tahajjud, and ishraq.
+ * Uses a single timer until the next event instead of polling the clock.
  *
  * @param {SpecialTimeSchedulerOptions} options
  * @returns {{ stop: () => void, checkNow: () => Promise<{
@@ -42,7 +82,6 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
 export function startSpecialTimeScheduler({
   latitude,
   longitude,
-  intervalMs = 1_000,
   audioBaseDir,
   events = SPECIAL_TIME_EVENTS,
   playAudio,
@@ -54,7 +93,8 @@ export function startSpecialTimeScheduler({
   }
 
   const playedKeys = new Set();
-  let timerId = null;
+  const timer = createDeferredTimer();
+  const schedulableEvents = filterEventsWithAudio(events, audioBaseDir);
 
   /**
    * @param {string} playKey
@@ -90,13 +130,9 @@ export function startSpecialTimeScheduler({
     /** @type {{ event: string, time: Date, audioKind: 'special' } | null} */
     let lastResult = null;
 
-    for (const event of events) {
+    for (const event of schedulableEvents) {
       const eventTime = specialTimes[event];
       if (!(eventTime instanceof Date) || Number.isNaN(eventTime.getTime())) {
-        continue;
-      }
-
-      if (!specialTimeAudioExists(event, audioBaseDir)) {
         continue;
       }
 
@@ -121,17 +157,45 @@ export function startSpecialTimeScheduler({
     return lastResult;
   };
 
-  const runTick = createNonOverlappingTickRunner(checkNow, onError);
+  const armNextWake = () => {
+    if (timer.stopped) {
+      return;
+    }
 
-  timerId = setInterval(runTick, intervalMs);
-  runTick();
+    const now = new Date();
+    const nowSecond = truncateToSecond(now);
+    const dayEvents = getOrderedSpecialEvents(now, latitude, longitude, schedulableEvents);
+
+    for (const event of dayEvents) {
+      const eventSecond = truncateToSecond(event.time);
+      if (eventSecond < nowSecond) {
+        continue;
+      }
+
+      const playKey = `${event.event}-special-${eventSecond}`;
+      if (eventSecond === nowSecond && playedKeys.has(playKey)) {
+        continue;
+      }
+
+      const wakeAt = new Date(eventSecond);
+      timer.schedule(delayUntil(wakeAt, now), runWake);
+      return;
+    }
+
+    const nextDay = startOfNextLocalDay(now);
+    timer.schedule(delayUntil(nextDay, now) + 1_000, runWake);
+  };
+
+  const runWake = createNonOverlappingTickRunner(async () => {
+    await checkNow();
+    armNextWake();
+  }, onError);
+
+  armNextWake();
 
   return {
     stop: () => {
-      if (timerId !== null) {
-        clearInterval(timerId);
-        timerId = null;
-      }
+      timer.stop();
     },
     checkNow,
   };

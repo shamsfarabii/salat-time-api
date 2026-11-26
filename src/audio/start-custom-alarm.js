@@ -1,6 +1,11 @@
 import { isSameMinute, truncateToMinute } from '../utils/time-match.js';
 import { resolveAudioPath } from './resolve-audio-path.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
+import {
+  createDeferredTimer,
+  delayUntil,
+  startOfNextLocalDay,
+} from './event-timer.js';
 
 /**
  * @param {number} hours
@@ -37,7 +42,6 @@ function buildTodayAlarmDate(now, hours, minutes) {
  * @property {number} minutes
  * @property {string} audioFile
  * @property {string} [audioBaseDir]
- * @property {number} [intervalMs=60000]
  * @property {'once' | 'daily'} [repeat='once']
  * @property {(filePath: string, context: { time: Date }) => Promise<void>} playAudio
  * @property {(result: { time: Date }) => void} [onPlayed]
@@ -46,7 +50,7 @@ function buildTodayAlarmDate(now, hours, minutes) {
  */
 
 /**
- * Poll until the current minute matches the alarm time, then play audio.
+ * Play audio at the configured time.
  * With `repeat: 'daily'`, keeps running and plays every day at the same time.
  *
  * @param {CustomAlarmOptions} options
@@ -57,7 +61,6 @@ export function startCustomAlarm({
   minutes,
   audioFile,
   audioBaseDir,
-  intervalMs = 60_000,
   repeat = 'once',
   playAudio,
   onPlayed,
@@ -72,7 +75,7 @@ export function startCustomAlarm({
     throw new Error('audioFile is required');
   }
 
-  let timerId = null;
+  const timer = createDeferredTimer();
   let lastPlayedKey = null;
   const alarmAt = buildNextAlarmDate(hours, minutes);
 
@@ -106,26 +109,54 @@ export function startCustomAlarm({
     return result;
   };
 
-  const runTick = createNonOverlappingTickRunner(
-    async () => {
-      const result = await checkNow();
-      if (result && repeat === 'once') {
-        stop();
-      }
-      return result;
-    },
-    onError
-  );
-
-  const stop = () => {
-    if (timerId !== null) {
-      clearInterval(timerId);
-      timerId = null;
+  const armNextWake = () => {
+    if (timer.stopped) {
+      return;
     }
+
+    const now = new Date();
+    const nowMinute = truncateToMinute(now);
+    const todayAlarm = buildTodayAlarmDate(now, hours, minutes);
+    const alarmMinute = truncateToMinute(todayAlarm);
+
+    let wakeAt;
+    if (alarmMinute >= nowMinute) {
+      const playKey = alarmMinute;
+      if (alarmMinute === nowMinute && playKey === lastPlayedKey) {
+        if (repeat === 'once') {
+          return;
+        }
+
+        const nextDay = startOfNextLocalDay(now);
+        wakeAt = buildTodayAlarmDate(nextDay, hours, minutes);
+      } else {
+        wakeAt = new Date(alarmMinute);
+      }
+    } else if (repeat === 'daily') {
+      const nextDay = startOfNextLocalDay(now);
+      wakeAt = buildTodayAlarmDate(nextDay, hours, minutes);
+    } else {
+      return;
+    }
+
+    timer.schedule(delayUntil(wakeAt, now), runWake);
   };
 
-  timerId = setInterval(runTick, intervalMs);
-  runTick();
+  const stop = () => {
+    timer.stop();
+  };
+
+  const runWake = createNonOverlappingTickRunner(async () => {
+    const result = await checkNow();
+    if (result && repeat === 'once') {
+      stop();
+      return;
+    }
+
+    armNextWake();
+  }, onError);
+
+  armNextWake();
 
   return { stop, alarmAt, repeat };
 }

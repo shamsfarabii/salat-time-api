@@ -4,15 +4,18 @@ import { resolveAudioPath } from './resolve-audio-path.js';
 import {
   buildMasjidSchedules,
   getMasjidMinutesBeforeReference,
-  getMatchingJamaatReminder,
   getReminderTimeForToday,
   resolveMasjidReferenceTimeForToday,
 } from './jamaat-time-utils.js';
 import { createNonOverlappingTickRunner } from './tick-runner.js';
+import {
+  createDeferredTimer,
+  delayUntil,
+  startOfNextLocalDay,
+} from './event-timer.js';
 
 /**
  * @typedef {Object} JamaatReminderSchedulerOptions
- * @property {number} [intervalMs=60000] How often to poll for a matching reminder time
  * @property {number} [latitude] Required for Maghrib Masjid (5 min before waqt)
  * @property {number} [longitude] Required for Maghrib Masjid (5 min before waqt)
  * @property {string} [audioBaseDir]
@@ -37,7 +40,32 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  */
 
 /**
- * Poll at a fixed interval and play Masjid audio before jamaat (Maghrib: 5 min before waqt).
+ * @typedef {import('./jamaat-time-utils.js').JamaatReminderSchedule} JamaatReminderSchedule
+ */
+
+/**
+ * @param {Date} now
+ * @param {JamaatReminderSchedule[]} schedules
+ * @param {{ latitude: number, longitude: number } | undefined} location
+ * @returns {Array<{ schedule: JamaatReminderSchedule, reminderTime: Date }>}
+ */
+function getOrderedRemindersForDay(now, schedules, location) {
+  return schedules
+    .map((schedule) => {
+      const reminderTime = getReminderTimeForToday(now, schedule, location);
+      if (!(reminderTime instanceof Date) || Number.isNaN(reminderTime.getTime())) {
+        return null;
+      }
+
+      return { schedule, reminderTime };
+    })
+    .filter((entry) => entry !== null)
+    .sort((a, b) => a.reminderTime.getTime() - b.reminderTime.getTime());
+}
+
+/**
+ * Play Masjid audio before jamaat (Maghrib: 5 min before waqt).
+ * Uses a single timer until the next reminder instead of polling the clock.
  *
  * @param {JamaatReminderSchedulerOptions} options
  * @returns {{ stop: () => void, checkNow: () => Promise<{
@@ -50,7 +78,6 @@ import { createNonOverlappingTickRunner } from './tick-runner.js';
  * } | null> }}
  */
 export function startJamaatReminderScheduler({
-  intervalMs = 60_000,
   latitude,
   longitude,
   audioBaseDir,
@@ -64,7 +91,7 @@ export function startJamaatReminderScheduler({
   }
 
   let lastPlayedKey = null;
-  let timerId = null;
+  const timer = createDeferredTimer();
 
   const location =
     Number.isFinite(latitude) && Number.isFinite(longitude)
@@ -79,61 +106,93 @@ export function startJamaatReminderScheduler({
   const checkNow = async () => {
     const now = new Date();
     const schedules = loadSchedules();
-    const match = getMatchingJamaatReminder(now, schedules, location);
+    const nowMinute = truncateToMinute(now);
 
-    if (!match) {
-      return null;
-    }
+    for (const { schedule, reminderTime } of getOrderedRemindersForDay(now, schedules, location)) {
+      if (truncateToMinute(reminderTime) !== nowMinute) {
+        continue;
+      }
 
-    const playKey = `${match.reminderId}-${truncateToMinute(now)}`;
-    if (playKey === lastPlayedKey) {
-      return null;
-    }
+      const playKey = `${schedule.reminderId}-${nowMinute}`;
+      if (playKey === lastPlayedKey) {
+        continue;
+      }
 
-    const reminderTime = getReminderTimeForToday(now, match, location);
-    const jamaatTime = resolveMasjidReferenceTimeForToday(now, match, location);
-    const minutesBefore = getMasjidMinutesBeforeReference(match);
+      const jamaatTime = resolveMasjidReferenceTimeForToday(now, schedule, location);
+      const minutesBefore = getMasjidMinutesBeforeReference(schedule);
+      const resolvedPath = resolveAudioPath(schedule.audioFile, audioBaseDir);
+      lastPlayedKey = playKey;
 
-    const resolvedPath = resolveAudioPath(match.audioFile, audioBaseDir);
-    lastPlayedKey = playKey;
+      try {
+        await playAudio(resolvedPath, {
+          prayer: schedule.prayer,
+          reminderTime,
+          jamaatTime,
+          minutesBefore,
+          reminderId: schedule.reminderId,
+          audioKind: 'masjid',
+        });
+      } catch (error) {
+        lastPlayedKey = null;
+        throw error;
+      }
 
-    try {
-      await playAudio(resolvedPath, {
-        prayer: match.prayer,
+      const result = {
+        prayer: schedule.prayer,
         reminderTime,
         jamaatTime,
         minutesBefore,
-        reminderId: match.reminderId,
-        audioKind: 'masjid',
-      });
-    } catch (error) {
-      lastPlayedKey = null;
-      throw error;
+        reminderId: schedule.reminderId,
+        audioKind: /** @type {'masjid'} */ ('masjid'),
+      };
+
+      onPlayed?.(result);
+      return result;
     }
 
-    const result = {
-      prayer: match.prayer,
-      reminderTime,
-      jamaatTime,
-      minutesBefore,
-      reminderId: match.reminderId,
-      audioKind: /** @type {'masjid'} */ ('masjid'),
-    };
-
-    onPlayed?.(result);
-    return result;
+    return null;
   };
 
-  const runTick = createNonOverlappingTickRunner(checkNow, onError);
+  const armNextWake = () => {
+    if (timer.stopped) {
+      return;
+    }
 
-  timerId = setInterval(runTick, intervalMs);
+    const now = new Date();
+    const nowMinute = truncateToMinute(now);
+    const schedules = loadSchedules();
+    const dayReminders = getOrderedRemindersForDay(now, schedules, location);
+
+    for (const { schedule, reminderTime } of dayReminders) {
+      const reminderMinute = truncateToMinute(reminderTime);
+      if (reminderMinute < nowMinute) {
+        continue;
+      }
+
+      const playKey = `${schedule.reminderId}-${reminderMinute}`;
+      if (reminderMinute === nowMinute && playKey === lastPlayedKey) {
+        continue;
+      }
+
+      const wakeAt = new Date(reminderMinute);
+      timer.schedule(delayUntil(wakeAt, now), runWake);
+      return;
+    }
+
+    const nextDay = startOfNextLocalDay(now);
+    timer.schedule(delayUntil(nextDay, now) + 1_000, runWake);
+  };
+
+  const runWake = createNonOverlappingTickRunner(async () => {
+    await checkNow();
+    armNextWake();
+  }, onError);
+
+  armNextWake();
 
   return {
     stop: () => {
-      if (timerId !== null) {
-        clearInterval(timerId);
-        timerId = null;
-      }
+      timer.stop();
     },
     checkNow,
   };
